@@ -28,6 +28,7 @@ class MigrationController extends MigrationAppController {
 				'class' => Migration::classNameParts($mname,'class'),
 				'name' => str_replace('.','-',$mname),
 				'count' => 0,
+				'param' => str_replace('.','-',Inflector::underscore($mname)),
 			);
 			if(!empty($pendings[$mname])){
 				$m['count'] = $pendings[$mname];

@@ -5,7 +5,8 @@
 			<fieldset><legend><?php __('Models'); ?></legend>
 		<?php
 			foreach($models as $model){
-				echo $this->Form->input('Migration.models.'.$model['name'],array('type'=>'checkbox','label'=>__($model['class'],true).' ('.sprintf(__('%s Pendings', true), $model['count']).')','options'=>false));
+				$after = $this->Html->link(__('Setting', true), array('plugin'=>'migration','controller'=>'migration_nodes','action' => 'index',$model['param']),array('class'=>'btSettings'));
+				echo $this->Form->input('Migration.models.'.$model['name'],array('type'=>'checkbox','label'=>__($model['class'],true).' ('.sprintf(__('%s Pendings', true), $model['count']).')','options'=>false,'after'=>$after));
 			}
 		?>
 			</fieldset>

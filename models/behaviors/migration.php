@@ -6,6 +6,7 @@ class MigrationBehavior extends ModelBehavior {
 		'plugin'=>null,
 		'excludeFields'=>array(),
 		'overridable'=>false,
+		'manual'=>false,
 	);
 	
 	function setup(&$Model, $settings) {
@@ -15,15 +16,63 @@ class MigrationBehavior extends ModelBehavior {
 		$this->settings[$Model->alias] = array_merge($this->settings[$Model->alias], (array)$settings);
 		
 		$this->MigrationRemote = ClassRegistry::init('Migration.MigrationRemote');
+		$this->MigrationNode = ClassRegistry::init('Migration.MigrationNode');
 	}
 	
 	function setPluginName($Model,$plugin){
 		$this->settings[$Model->alias]['plugin'] = $plugin;
 	}
 	
-	function migrateBatch($Model,$targetInstance,$limit = 20){
-		$fullName = $this->settings[$Model->alias]['plugin'].'.'.$Model->name;
+	function migrationPendingCount($Model){
+		$settings = $this->settings[$Model->alias];
 		$MR = $this->MigrationRemote;
+		$MN = $this->MigrationNode;
+		$fullName = $settings['plugin'].'.'.$Model->name;
+		$findOpt = array(
+			'fields'=>array('COUNT(DISTINCT '.$Model->alias.'.'.$Model->primaryKey.') as count'),
+			'conditions'=>array('or'=>array(
+				$MR->alias.'.updated < '.$Model->alias.'.modified',
+				$MR->alias.'.id IS NULL'
+			)),
+			'joins' => array(
+				array(
+					'alias' => $MR->alias,
+					'table'=> $MR->useTable,
+					'type' => 'LEFT',
+					'conditions' => array(
+						$MR->alias.'.model' => $fullName,
+						$MR->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
+					)
+				),
+				array(
+					'alias' => $MN->alias,
+					'table'=> $MN->useTable,
+					'type' => 'LEFT',
+					'conditions' => array(
+						$MN->alias.'.model' => $fullName,
+						$MN->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
+					)
+				)
+			),
+			'recursive' => -1,
+		);
+		if($settings['manual']){
+			$findOpt['conditions'][$MN->alias.'.tracked'] = 1;
+		}else{
+			$findOpt['conditions'][] = array('or'=>array(
+				$MN->alias.'.tracked' => 0,
+				$MN->alias.'.tracked IS NULL'
+			));
+		}
+		$count = $Model->find('first',$findOpt);
+		return $count;
+	}
+	
+	function migrateBatch($Model,$targetInstance,$limit = 20){
+		$settings = $this->settings[$Model->alias];
+		$MR = $this->MigrationRemote;
+		$MN = $this->MigrationNode;
+		$fullName = $settings['plugin'].'.'.$Model->name;
 		$findOpt = array(
 			'fields' => array($Model->alias.'.*',$MR->alias.'.*'),
 			'conditions'=>array('or'=>array(
@@ -40,11 +89,28 @@ class MigrationBehavior extends ModelBehavior {
 						$MR->alias.'.instance' => $targetInstance,
 						$MR->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
 					)
+				),
+				array(
+					'alias' => $MN->alias,
+					'table'=> $MN->useTable,
+					'type' => 'LEFT',
+					'conditions' => array(
+						$MN->alias.'.model' => $fullName,
+						$MN->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
+					)
 				)
 			),
 			'limit' => $limit,
 			'recursive' => -1,
 		);
+		if($settings['manual']){
+			$findOpt['conditions'][$MN->alias.'.tracked'] = 1;
+		}else{
+			$findOpt['conditions'][] = array('or'=>array(
+				$MN->alias.'.tracked' => 0,
+				$MN->alias.'.tracked IS NULL'
+			));
+		}
 		$entries = $Model->find('all',$findOpt);
 		//debug($entries);
 		foreach($entries as $entry){

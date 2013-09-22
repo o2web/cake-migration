@@ -51,26 +51,7 @@ class Migration extends Object {
 		$list = array();
 		foreach($models as $mname){
 			$Model = Migration::getLocalModel($mname);
-			$findOpt = array(
-				'fields'=>array('COUNT(DISTINCT '.$Model->alias.'.'.$Model->primaryKey.') as count'),
-				'conditions'=>array('or'=>array(
-					$MigrationRemote->alias.'.updated < '.$Model->alias.'.modified',
-					$MigrationRemote->alias.'.id IS NULL'
-				)),
-				'joins' => array(
-					array(
-						'alias' => $MigrationRemote->alias,
-						'table'=> $MigrationRemote->useTable,
-						'type' => 'LEFT',
-						'conditions' => array(
-							$MigrationRemote->alias.'.model' => $mname,
-							$MigrationRemote->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
-						)
-					)
-				),
-				'recursive' => -1,
-			);
-			$count = $Model->find('first',$findOpt);
+			$count = $Model->migrationPendingCount();
 			$list[$mname] = $count[0]['count'];
 		}
 		return $list;
