@@ -18,26 +18,32 @@ class Migration extends Object {
 		return array_values(array_diff($models,$exclude));
 	}
 	
-	function migratingModels(){
-		if(($cached = Cache::read('migrating_models'))!==false){
-			return $cached;
-		}
+	function migratingModels($full=true){
+		$migrated = Cache::read('migrating_models');
 		
-		App::import('Lib', 'Migration.MigrationConfig');
-		$preset = MigrationConfig::load('preset');
-		
-		$models = Migration::modelList();
-		$migrated = array_values(array_intersect($models,array_keys($preset)));
-		foreach(array_diff($models,$migrated) as $mname){
-			if(Migration::testModelIntegrity($mname)){
-				$Model = ClassRegistry::init($mname);
-				if($Model->Behaviors->attached('Migration')){
-					$migrated[] = $mname;
+		if(empty($migrated)){
+			App::import('Lib', 'Migration.MigrationConfig');
+			$preset = MigrationConfig::load('preset');
+			
+			$models = Migration::modelList();
+			$migrated = array_values(array_intersect($models,array_keys($preset)));
+			foreach(array_diff($models,$migrated) as $mname){
+				if(Migration::testModelIntegrity($mname)){
+					$Model = ClassRegistry::init($mname);
+					if($Model->Behaviors->attached('Migration')){
+						$migrated[] = $mname;
+					}
 				}
 			}
+			
+			Cache::write('migrating_models', $migrated);
 		}
-		
-		Cache::write('migrating_models', $migrated);
+		if(!$full){
+			foreach($migrated as &$m){
+				$p = explode('.',$m);
+				$m = end($p);
+			}
+		}
 		return $migrated;
 	}
 	
@@ -142,6 +148,12 @@ class Migration extends Object {
 		return true;
 	}
 	
+	function modelNameToUrl($modelName){
+		return implode('-',array_map(array('Inflector','underscore'),explode('.',$modelName)));
+	}
+	function urlParamToModelName($param){
+		return implode('.',array_map(array('Inflector','camelize'),explode('-',$param)));
+	}
 	
 	function classNameParts($name,$key=null){
 		$part = explode('.',$name,2);

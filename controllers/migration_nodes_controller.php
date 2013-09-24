@@ -3,7 +3,18 @@ class MigrationNodesController extends MigrationAppController {
 
 	var $name = 'MigrationNodes';
 
-	function admin_index($model) {
+	function admin_index($modelName) {
+		App::import('Lib', 'Migration.Migration');
+		$modelName = Migration::urlParamToModelName($modelName);
+		$Model = Migration::getLocalModel($modelName);
+		$this->loadModel($modelName);
+		
+		$this->paginate = array_merge($this->paginate,$Model->migrationPaginateOpts());
+		
+		
+		
+		$fields = $Model->migrationListFields();
+		
 		$q = null;
 		if(isset($this->params['named']['q']) && strlen(trim($this->params['named']['q'])) > 0) {
 			$q = $this->params['named']['q'];
@@ -11,13 +22,27 @@ class MigrationNodesController extends MigrationAppController {
 			$q = $this->data['MigrationNode']['q'];
 			$this->params['named']['q'] = $q;
 		}
-					
 		if($q !== null) {
-			$this->paginate['conditions']['OR'] = array('MigrationNode.model LIKE' => '%'.$q.'%');
+			$this->passedArgs['q'] = $q;
+			foreach ($fields as $fieldName=>$field) {
+				$this->paginate['conditions']['OR'][$Model->alias.'.'.$fieldName.' LIKE'] = '%'.$q.'%';
+			}
+		}
+		$entries = $this->paginate($Model->name);
+		$manual = $Model->migrationSettings('manual');
+		if( !empty($this->data['MigrationNode']['tracked']) ) {
+			$Model->updateMigrationTracking($this->data['MigrationNode']['tracked']);
+		}else{
+			foreach ($entries as $entry) {
+				$this->data['MigrationNode']['tracked'][$entry[$Model->alias][$Model->primaryKey]] = is_null($entry['MigrationNode']['tracked'])?!$manual:$entry['MigrationNode']['tracked'];
+			}
 		}
 
-		$this->MigrationNode->recursive = 0;
-		$this->set('migrationNodes', $this->paginate());
+		$Model->recursive = 0;
+		$this->set('modelAlias', $Model->alias);
+		$this->set('modelPrimary', $Model->primaryKey);
+		$this->set('fields', $fields);
+		$this->set('migrationNodes', $entries);
 	}
 
 	function admin_edit($id = null) {

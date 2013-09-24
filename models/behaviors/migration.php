@@ -5,8 +5,10 @@ class MigrationBehavior extends ModelBehavior {
 		'mode'=>'all',
 		'plugin'=>null,
 		'excludeFields'=>array(),
-		'overridable'=>false,
+		'overridable'=>array(),
 		'manual'=>false,
+		'listFields'=>array(),
+		'assoc'=>array(),
 	);
 	
 	function setup(&$Model, $settings) {
@@ -21,6 +23,46 @@ class MigrationBehavior extends ModelBehavior {
 	
 	function setPluginName($Model,$plugin){
 		$this->settings[$Model->alias]['plugin'] = $plugin;
+	}
+	
+	function migrationSettings($Model, $key=null){
+		$settings = $this->settings[$Model->alias];
+		if($key){
+			return $settings[$key];
+		}
+		return $settings;
+	}
+	
+	function migrationPaginateOpts($Model){
+		$opts = array();
+		
+		$settings = $this->settings[$Model->alias];
+		$fullName = $settings['plugin'].'.'.$Model->name;
+		$MN = $this->MigrationNode;
+		$Model->bindModel(
+			array('hasOne' => array(
+				$MN->alias => array(
+					'className' => $MN->name,
+					'foreignKey' => 'local_id',
+					'conditions' => array($MN->alias.'.model' => $fullName)
+				)
+			))
+		,false);
+		
+		return $opts;
+	}
+	
+	function migrationListFields($Model){
+		$settings = $this->settings[$Model->alias];
+		$fields = $settings['listFields'];
+		if(empty($fields)){
+			$fields = array($Model->primaryKey,$Model->displayField);
+		}
+		$fields = Set::normalize($fields);
+		foreach ($fields as $fieldName => &$opt) {
+			if(empty($opt['label'])) $opt['label'] = __(Inflector::humanize($fieldName),true);
+		}
+		return $fields;
 	}
 	
 	function migrationPendingCount($Model){
@@ -135,7 +177,9 @@ class MigrationBehavior extends ModelBehavior {
 				$remoteCond[$remoteModel->alias.'.'.$field] = $entry[$Model->alias][$field];
 			}
 		}
-		$remoteEntry = $remoteModel->find('first',array('conditions'=>$remoteCond,'recursive'=>-1));
+		if(!empty($remoteCond)){
+			$remoteEntry = $remoteModel->find('first',array('conditions'=>$remoteCond,'recursive'=>-1));
+		}
 		if(!empty($remoteEntry)){
 			if($this->remoteEntryEquals($Model, $entry, $remoteEntry, $targetInstance)){
 				//both entries are equals, skip.
@@ -178,9 +222,8 @@ class MigrationBehavior extends ModelBehavior {
 	function updateRemoteEntry($Model, $entry, $remoteEntry, $targetInstance){
 		$settings = $this->settings[$Model->alias];
 		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
-		$raw = $this->getRawEntry($Model, $entry);
-		$data = $raw[$Model->alias];
-		$exclude = array_merge(array($Model->primaryKey),$settings['excludeFields']);
+		
+		$exclude = array();
 		if(!empty($settings['overridable'])){
 			$MR = $this->MigrationRemote;
 			$overrides = array();
@@ -199,7 +242,11 @@ class MigrationBehavior extends ModelBehavior {
 			}
 			debug($exclude);
 		}
-		$data = array_diff_key($data,array_flip($exclude));
+		
+		$data = $this->prepDataForMigration($Model, $entry, $targetInstance, $exclude);
+		if(empty($data)) return false;
+
+		
 		$data = array_merge($remoteEntry[$remoteModel->alias],$data);
 		if($remoteModel->save($data)){
 			return $this->updateRemoteTracking($Model, $targetInstance, $entry, $remoteEntry[$remoteModel->alias][$remoteModel->primaryKey]);
@@ -209,16 +256,55 @@ class MigrationBehavior extends ModelBehavior {
 	function createRemoteEntry($Model, $entry, $targetInstance){
 		$settings = $this->settings[$Model->alias];
 		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
-		$raw = $this->getRawEntry($Model, $entry);
-		$data = $raw[$Model->alias];
-		$exclude = array_merge(array($Model->primaryKey),$settings['excludeFields']);
-		$data = array_diff_key($data,array_flip($exclude));
+		
+		$data = $this->prepDataForMigration($Model, $entry, $targetInstance);
+		if(empty($data)) return false;
+		
 		$remoteModel->create();
 		$remoteModel->save($data);
 		if($remoteModel->save($data)){
 			return $this->updateRemoteTracking($Model, $targetInstance, $entry, $remoteModel->id);
 		}
 		return false;
+	}
+	
+	function prepDataForMigration($Model, $entry, $targetInstance, $exclude = array()){
+		$settings = $this->settings[$Model->alias];
+		$exclude = array_merge($exclude,array($Model->primaryKey),$settings['excludeFields']);
+		
+		
+		$assoc = $this->getMigratedAssociations($Model);
+		debug($assoc);
+		
+		
+		$raw = $this->getRawEntry($Model, $entry);
+		$data = $raw[$Model->alias];
+		$data = array_diff_key($data,array_flip($exclude));
+		
+		
+		return false;
+		
+		return $data;
+	}
+	
+	function getMigratedAssociations($Model){
+		$settings = $this->settings[$Model->alias];
+		$assoc = Set::normalize($settings['assoc']);
+		$belongsTo = array_diff($Model->getAssociated('belongsTo'),array_keys($assoc));
+		if(!empty($belongsTo)){
+			$exclude = array_merge(array($Model->primaryKey),$settings['excludeFields']);
+			foreach($Model->getAssociated('belongsTo') as $alias){
+				$opt = $Model->belongsTo[$alias];
+				if( 
+					(in_array($opt['className'],Migration::migratingModels()) 
+						|| in_array($opt['className'],Migration::migratingModels(false)) )
+					&& !in_array($opt['foreignKey'],$exclude)
+				){
+					$assoc[$alias] = $opt;
+				}
+			}
+		}
+		return $assoc;
 	}
 	
 	function getRawEntry($Model, $entry){
@@ -262,6 +348,33 @@ class MigrationBehavior extends ModelBehavior {
 		}
 		
 		return !!($MR->save($data));
+	}
+	
+	function updateMigrationTracking($Model, $data){
+		$settings = $this->settings[$Model->alias];
+		$MN = $this->MigrationNode;
+		$fullName = $settings['plugin'].'.'.$Model->name;
+		$gdata = array();
+		foreach($data as $id=>$tracked){
+			$gdata[(int)(bool)$tracked][] = $id;
+		}
+		$def = !$settings['manual'];
+		if(!empty($gdata[(int)$def])){
+			$MN->updateAll(array('tracked'=>null), array('model'=>$fullName,'local_id'=>$gdata[(int)$def]));
+		}
+		if(!empty($gdata[(int)!$def])){
+			$MN->updateAll(array('tracked'=>(int)!$def), array('model'=>$fullName,'local_id'=>$gdata[(int)!$def]));
+			$existent = $MN->find('list',array('fields'=>array('id','local_id'),'conditions'=>array('model'=>$fullName,'local_id'=>$gdata[(int)!$def])));
+			foreach(array_diff($gdata[(int)!$def],$existent) as $id){
+				$MN->create();
+				$node = array(
+					'model'=>$fullName,
+					'local_id'=>$id,
+					'tracked'=>(int)!$def,
+				);
+				$MN->save($node);
+			}
+		}
 	}
 	
 	function getMigrationSign($Model, $entry, $instance = false){

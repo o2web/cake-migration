@@ -1,18 +1,27 @@
+<?php
+	$this->Html->css('/migration/css/admin',null,array('inline'=>false));
+	$this->Paginator->options(array('url' => $this->passedArgs));
+?>
 <div class="migrationNodes index">
 	<?php
-		echo $this->Form->create('Migration Node', array('class' => 'search', 'url' => array('action' => 'index')));
+		echo $this->Form->create('MigrationNode', array('class' => 'search', 'url' => array('action' => 'index',$this->params['pass'][0])));
 		echo $this->Form->input('q', array('class' => 'keyword', 'label' => false, 'after' => $form->submit(__('Search', true), array('div' => false))));
-		echo $this->Form->end();
+		echo $this->Form->end(); 
 	?>	
 	<h2><?php __('Migration Nodes');?></h2>
 	
+	<?php echo $this->Form->create('MigrationNode',array('url' => $this->passedArgs));?>
 	<table cellpadding="0" cellspacing="0">
 		<tr>
-			<th><?php echo $this->Paginator->sort('id');?></th>			
-			<th><?php echo $this->Paginator->sort('model');?></th>			
-			<th><?php echo $this->Paginator->sort('local_id');?></th>			
+			<?php $j=0; ?>
+			<?php foreach ($fields as $fieldName=>$field) { ?>
+			<th class="<?php echo $fieldName.($j==0?' firstCol':'') ?>"><?php echo $this->Paginator->sort($field['label'],$fieldName);?></th>	
+			<?php $j++; ?>			
+			<?php } ?>
 			<th><?php echo $this->Paginator->sort('tracked');?></th>			
-			<th class="actions"><?php __('Actions');?></th>
+			<?php /*
+				<th class="actions"><?php __('Actions');?></th>
+			*/ ?>
 		</tr>
 		<?php
 			$i = 0;
@@ -24,10 +33,14 @@
 				}
 				?>
 					<tr<?php echo $class;?>>
-						<td class="id"><?php echo $migrationNode['MigrationNode']['id']; ?>&nbsp;</td>
-						<td class="model"><?php echo $migrationNode['MigrationNode']['model']; ?>&nbsp;</td>
-						<td class="local_id"><?php echo $migrationNode['MigrationNode']['local_id']; ?>&nbsp;</td>
-						<td class="tracked"><?php echo $bool[$migrationNode['MigrationNode']['tracked']]; ?>&nbsp;</td>
+						<?php $j=0; ?>
+						<?php foreach ($fields as $fieldName=>$field) { ?>
+						<td class="<?php echo $fieldName.($j==0?' firstCol':'') ?>"><?php echo $migrationNode[$modelAlias][$fieldName]; ?>&nbsp;</td>
+						<?php $j++; ?>
+						<?php } ?>
+						<td class="tracked"><?php
+							echo $this->Form->input('MigrationNode.tracked.'.$migrationNode[$modelAlias][$modelPrimary],array('type'=>'checkbox','label'=>false));
+						?></td>
 						<?php /*
 						<td class="actions">
 							<?php echo $this->Html->link(__('Edit', true), array('action' => 'edit', $migrationNode['MigrationNode']['id']), array('class' => 'edit')); ?>
@@ -38,7 +51,15 @@
 				<?php
 			}
 		?>
+		<tr>
+			<th class="invisible" colspan="<?php echo count($fields); ?>">&nbsp;</th>
+			<th class="tracked"><?php echo $form->submit(__('Submit', true)); ?></th>			
+			<?php /*
+				<th class="actions"><?php __('Actions');?></th>
+			*/ ?>
+		</tr>
 	</table>
+	<?php echo $this->Form->end();?>
 	
 	<p class="paging">
 		<?php
@@ -57,5 +78,6 @@
 </div>
 <div class="actions">
 	<ul>
+		<li><?php echo $this->Html->link(__('Synchronization', true), array('plugin'=>'migration','controller'=>'migration','action' => 'index')); ?></li>
 	</ul>
 </div>

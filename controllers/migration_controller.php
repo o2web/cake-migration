@@ -9,11 +9,11 @@ class MigrationController extends MigrationAppController {
 		
 		$posted = !empty($this->data);
 		if($posted){
-			foreach($this->data['Migration']['models'] as $modelName => $active){
+			foreach($this->data['Migration']['targets'] as $target => $active){
 				if($active){
-					$modelName = str_replace('-','.',$modelName);
-					foreach($this->data['Migration']['targets'] as $target => $active){
+					foreach($this->data['Migration']['models'] as $modelName => $active){
 						if($active){
+							$modelName = str_replace('-','.',$modelName);
 							Migration::processBatch($modelName,$target);
 						}
 					}
@@ -28,7 +28,7 @@ class MigrationController extends MigrationAppController {
 				'class' => Migration::classNameParts($mname,'class'),
 				'name' => str_replace('.','-',$mname),
 				'count' => 0,
-				'param' => str_replace('.','-',Inflector::underscore($mname)),
+				'param' => Migration::modelNameToUrl($mname),
 			);
 			if(!empty($pendings[$mname])){
 				$m['count'] = $pendings[$mname];
