@@ -13,10 +13,15 @@ class MigrationConfig extends Object {
 				'overridable'=>array('string_fre','string_eng','text_fre','text_eng','m_photo_fre','m_photo_eng','m_video_fre','m_video_eng','m_document_fre','m_document_eng','checkbox','select','number','options'),
 				'listFields'=>array('id','title','desc'),
 			),
+			'Multimedia.Multimedium' => array(
+				'remapFields'=>array('filename','path'),
+				'manual'=>true,
+			)
 		),
 		'instance_name' => null,
 		'target_instances' => array(),
 		'harmfullBehaviors' => array('History'),
+		'assocParsers' => array(array('Migration','getMultimediaAssoc')),
 	);
 	
 	//$_this =& MigrationConfig::getInstance();

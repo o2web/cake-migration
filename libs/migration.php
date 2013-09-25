@@ -18,7 +18,7 @@ class Migration extends Object {
 		return array_values(array_diff($models,$exclude));
 	}
 	
-	function migratingModels($full=true){
+	function migratingModels(){
 		$migrated = Cache::read('migrating_models');
 		
 		if(empty($migrated)){
@@ -31,19 +31,15 @@ class Migration extends Object {
 				if(Migration::testModelIntegrity($mname)){
 					$Model = ClassRegistry::init($mname);
 					if($Model->Behaviors->attached('Migration')){
-						$migrated[] = $mname;
+						$p = explode('.',$mname);
+						$migrated[end($p)] = $mname;
 					}
 				}
 			}
 			
 			Cache::write('migrating_models', $migrated);
 		}
-		if(!$full){
-			foreach($migrated as &$m){
-				$p = explode('.',$m);
-				$m = end($p);
-			}
-		}
+		
 		return $migrated;
 	}
 	
@@ -169,5 +165,88 @@ class Migration extends Object {
 			return null;
 		}
 		return $part;
+	}
+	
+	function extractPath($data, $path = null) {
+		if (empty($path)) {
+			return $data;
+		}
+		if (is_object($data)) {
+			$data = get_object_vars($data);
+		}
+
+		if (!is_array($path)) {
+			if (!class_exists('String')) {
+				App::import('Core', 'String');
+			}
+			$parts = String::tokenize($path, '.', '{', '}');
+		}
+		
+		if (!is_array($data)) {
+			return array();
+		}
+		
+		$tmp = array();
+
+		if (!is_array($parts) || empty($parts)) {
+			return array();
+		}
+		
+		$key = reset($parts);
+		
+		$tmpPath = array_slice($parts, $i + 1);
+		if (is_numeric($key) && intval($key) > 0 || $key === '0') {
+			if (isset($data[intval($key)])) {
+				$tmp[intval($key)] = $data[intval($key)];
+			} else {
+				return array();
+			}
+		} elseif ($key === '{n}') {
+			foreach ($data as $j => $val) {
+				if (is_int($j)) {
+					$tmp[$j] = $val;
+				}
+			}
+		} elseif ($key === '{s}') {
+			foreach ($data as $j => $val) {
+				if (is_string($j)) {
+					$tmp[$j] = $val;
+				}
+			}
+		} elseif (false !== strpos($key,'{') && false !== strpos($key,'}')) {
+			$pattern = substr($key, 1, -1);
+
+			foreach ($data as $j => $val) {
+				if (preg_match('/^'.$pattern.'/s', $j) !== 0) {
+					$tmp[$j] = $val;
+				}
+			}
+		} else {
+			if (isset($data[$key])) {
+				$tmp[$key] = $data[$key];
+			} else {
+				return array();
+			}
+		}
+		
+		$res = array();
+		if (empty($tmpPath)) {
+			foreach($tmp as $key => $val){
+				$res2 = Migration::extractPath($val,$tmpPath);
+				foreach($res2 as $key2 => $val2){
+					$res[$key.'.'.$key2] = $val2;
+				}
+			}
+		}else{
+			return $tmp;
+		}
+			
+		return $res;
+	}
+	
+	function getMultimediaAssoc($behavior,$Model,$assoc){
+		if(!empty($Model->multimedia)){
+			debug($Model->multimedia);
+		}
 	}
 }
