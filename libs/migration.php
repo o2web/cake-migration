@@ -180,6 +180,8 @@ class Migration extends Object {
 				App::import('Core', 'String');
 			}
 			$parts = String::tokenize($path, '.', '{', '}');
+		}else{
+			$parts = $path;
 		}
 		
 		if (!is_array($data)) {
@@ -188,13 +190,13 @@ class Migration extends Object {
 		
 		$tmp = array();
 
-		if (!is_array($parts) || empty($parts)) {
+		if (empty($parts) || !is_array($parts)) {
 			return array();
 		}
 		
 		$key = reset($parts);
 		
-		$tmpPath = array_slice($parts, $i + 1);
+		$tmpPath = array_slice($parts, 1);
 		if (is_numeric($key) && intval($key) > 0 || $key === '0') {
 			if (isset($data[intval($key)])) {
 				$tmp[intval($key)] = $data[intval($key)];
@@ -230,7 +232,7 @@ class Migration extends Object {
 		}
 		
 		$res = array();
-		if (empty($tmpPath)) {
+		if (!empty($tmpPath)) {
 			foreach($tmp as $key => $val){
 				$res2 = Migration::extractPath($val,$tmpPath);
 				foreach($res2 as $key2 => $val2){
@@ -244,9 +246,31 @@ class Migration extends Object {
 		return $res;
 	}
 	
+	function updateAllTracking($data){
+		//debug($data);
+		foreach($data as $model => $mdata){
+			$Model = Migration::getLocalModel($model);
+			$Model->updateMigrationTracking($mdata);
+		}
+	}
+	
 	function getMultimediaAssoc($behavior,$Model,$assoc){
 		if(!empty($Model->multimedia)){
-			debug($Model->multimedia);
+			$add = array();
+			$settings = $behavior->settings[$Model->alias];
+			$exclude = array_merge(array($Model->primaryKey),$settings['excludeFields']);
+			//debug($Model->multimedia);
+			foreach($Model->multimedia as $field => $opt){
+				if(!in_array($field,$exclude)){
+					$add[Inflector::camelize($field)] = array(
+						'className' => 'Multimedia.Multimedium',
+						'path' => $field.'.{n}.id',
+						'unsetLevel' => 2,
+						'autoTrack' => true,
+					);
+				}
+			}
+			return $add;
 		}
 	}
 }

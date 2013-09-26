@@ -17,6 +17,7 @@ class MigrationBehavior extends ModelBehavior {
 		}
 		$this->settings[$Model->alias] = array_merge($this->settings[$Model->alias], (array)$settings);
 		
+		App::import('Lib', 'Migration.Migration');
 		$this->MigrationRemote = ClassRegistry::init('Migration.MigrationRemote');
 		$this->MigrationNode = ClassRegistry::init('Migration.MigrationNode');
 		$this->MigrationMissing = ClassRegistry::init('Migration.MigrationMissing');
@@ -191,13 +192,14 @@ class MigrationBehavior extends ModelBehavior {
 		if(empty($entry)) return false;
 		
 		if(!empty($remoteEntry)){
+			$remoteSign = $this->getMigrationSign($Model, $remoteEntry, $targetInstance);
 			if($this->remoteEntryEquals($Model, $entry, $remoteEntry, $targetInstance)){
 				//both entries are equals, skip.
 				return $this->updateRemoteTracking($Model, $targetInstance, $entry, $remoteEntry[$remoteModel->alias][$remoteModel->primaryKey]);
-			}elseif(!empty($entry[$MR->alias]['sign']) && $entry[$MR->alias]['sign'] == $this->getMigrationSign($Model, $remoteEntry, $targetInstance)){
+			}elseif(!empty($entry[$MR->alias]['sign']) && $entry[$MR->alias]['sign'] == $remoteSign){
 				//Remote entry was not modified since the last sync
 				return $this->updateRemoteEntry($Model, $entry, $remoteEntry, $targetInstance);
-			}elseif($this->getMigrationSign($Model, $entry) == $this->getMigrationSign($Model, $remoteEntry, $targetInstance)){
+			}elseif($this->getMigrationSign($Model, $entry) == $remoteSign){
 				//Some opreation has been made that prevent normal traking (modifying settings or adding the same entry in both instance's bd),
 				//but the entries seems compatible
 				return $this->updateRemoteEntry($Model, $entry, $remoteEntry, $targetInstance);
@@ -213,7 +215,7 @@ class MigrationBehavior extends ModelBehavior {
 	
 	function resolveRemoteConflict($Model, $entry, $remoteEntry, $targetInstance){
 		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
-		
+		debug('Cant resolve conflict');
 		return false;
 	}
 	
@@ -294,14 +296,24 @@ class MigrationBehavior extends ModelBehavior {
 				if(!empty($paths)){
 					$AssocModel = Migration::getLocalModel($opt['className']);
 					foreach($paths as $path => $local_id){
+						$removed = false;
 						$remote_id = $this->getRemoteId($AssocModel,$local_id,$targetInstance);
 						if(is_null($remote_id)){
+							if(isset($opt['unsetLevel'])){
+								$entry[$Model->alias] = Set::remove($entry[$Model->alias],implode('.',array_slice(explode('.',$path),0,$opt['unsetLevel'])));
+								$removed = true;
+							}
+							if(!empty($opt['autoTrack'])){
+								$entry['MigrationTracking'][$opt['className']][$local_id] = 1;
+							}
 							$entry['MigrationMissing'][] = array(
 								'model' => $opt['className'],
 								'local_id' => $local_id,
 							);
 						}
-						$entry[$Model->alias] = Set::insert($entry[$Model->alias],$path,$remote_id);
+						if(!$removed){
+							$entry[$Model->alias] = Set::insert($entry[$Model->alias],$path,$remote_id);
+						}
 					}
 				}
 			}
@@ -313,7 +325,7 @@ class MigrationBehavior extends ModelBehavior {
 		$data = $raw[$Model->alias];
 		$data = array_diff_key($data,array_flip($exclude));
 		
-		return false;
+		//return false;
 		
 		$entry['MigrationData'] = $data;
 		
@@ -414,6 +426,9 @@ class MigrationBehavior extends ModelBehavior {
 		}
 			
 		if($MR->save($data)){
+			if(!empty($entry['MigrationTracking'])){
+				Migration::updateAllTracking($entry['MigrationTracking']);
+			}
 			if(!empty($entry['MigrationMissing'])){
 				return $this->setMigrationMissing($Model,$entry['MigrationMissing'],$MR->id);
 			}
@@ -439,7 +454,9 @@ class MigrationBehavior extends ModelBehavior {
 			),
 			'recursive'=>0
 		));
-		$MR->updateAll(array('invalidated'=>1), array('id'=>array_values($toInvalidate)));
+		if(!empty($toInvalidate)){
+			$MR->updateAll(array('invalidated'=>1), array('id'=>array_values($toInvalidate)));
+		}
 	}
 	
 	function setMigrationMissing($Model,$data,$migration_remote_id){
@@ -463,7 +480,7 @@ class MigrationBehavior extends ModelBehavior {
 			}
 		}
 		if(!empty($existingsByCode)){
-			$MMissing->deleteAll(array('id'=>array_values($existingsByCode)));
+			$MMissing->deleteAll(array($MMissing->alias.'.id'=>array_values($existingsByCode)));
 		}
 		return true;
 	}
@@ -476,6 +493,7 @@ class MigrationBehavior extends ModelBehavior {
 		foreach($data as $id=>$tracked){
 			$gdata[(int)(bool)$tracked][] = $id;
 		}
+		//debug($gdata);
 		$def = !$settings['manual'];
 		if(!empty($gdata[(int)$def])){
 			$MN->updateAll(array('tracked'=>null), array('model'=>$fullName,'local_id'=>$gdata[(int)$def]));
