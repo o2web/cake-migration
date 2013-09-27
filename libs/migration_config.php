@@ -16,12 +16,18 @@ class MigrationConfig extends Object {
 			'Multimedia.Multimedium' => array(
 				'remapFields'=>array('filename','path'),
 				'manual'=>true,
+				'files'=>array(
+					'pathField' => 'path',
+					'fileField' => 'filename',
+					'basePath' => 'webroot:',
+				)
 			)
 		),
 		'instance_name' => null,
 		'target_instances' => array(),
 		'harmfullBehaviors' => array('History'),
 		'assocParsers' => array(array('Migration','getMultimediaAssoc')),
+		'dryRun' => false,
 	);
 	
 	//$_this =& MigrationConfig::getInstance();

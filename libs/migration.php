@@ -110,6 +110,8 @@ class Migration extends Object {
 		if(!empty($remoteDS[$instance])) $remoteDS[$instance];
 	
 		$name = 'remote_'.$instance;
+		
+		App::import('Lib', 'Migration.MigrationConfig');
 		$targets = MigrationConfig::load('target_instances');
 		$default = ConnectionManager::getDataSource('default');
 		$opt = array_merge($default->config,$targets[$instance]);
@@ -272,5 +274,82 @@ class Migration extends Object {
 			}
 			return $add;
 		}
+	}
+	
+	function solveURI($uri,$paths = null,$defaultPath = 'app',$ds = null){
+		if(is_null($ds)) $ds = DS;
+		if(is_null($paths)) $paths = array(
+			'app' => APP,
+			'webroot' => WWW_ROOT,
+			'tmp' => TMP,
+		);
+		if(!is_array($paths)) {
+			$paths = array($defaultPath=>$paths);
+			if($defaultPath == 'app'){
+				$paths['webroot'] = $paths['app'].DS.'webroot';
+				$paths['tmp'] = $paths['app'].DS.'tmp';
+			}
+		}
+		$parts = explode(':',$uri,2);
+		if(count($parts)>1){
+			$s = $parts[0];
+			$p = $parts[1];
+		}else{
+			$s = $defaultPath;
+			$p = $uri;
+		}
+		if(empty($s)){
+			return null;
+		}
+		if(empty($paths[$s]) && str_len($s) == 1){ //if true we asume it's an absolute path ex: "c:/folder1/folder2"
+			return $uri;
+		}elseif(empty($paths[$s])){
+			return null;
+		}
+		return rtrim($paths[$s],$ds).$ds.trim(str_replace('/',$ds,$p),$ds);
+	}
+	
+	function sendFile($localURI,$instance){
+		$localFile = Migration::solveURI($localURI);
+		debug($localFile);
+		if(!empty($localFile) && file_exists($localFile)){
+			App::import('Lib', 'Migration.MigrationConfig');
+			$targets = MigrationConfig::load('target_instances');
+			$instanceOpt = $targets[$instance];
+			$instanceOpt['name'] = $instance;
+			if(isset($instanceOpt['ftp'])) $instanceOpt['fileMode'] = 'ftp';
+			if(isset($instanceOpt['path'])) $instanceOpt['fileMode'] = 'local';
+			
+			if(!empty($instanceOpt['fileMode'])){
+				$f = $instanceOpt['fileMode'];
+				if(strpos($f,'::') === false){
+					$f = array('Migration','sendFile'.Inflector::camelize($f));
+				}else{
+					$f = explode('::',$f);
+				}
+				$res = call_user_func($f,$localFile,$localURI,$instanceOpt);
+				return !empty($res);
+			}
+		}
+		return false;
+	}
+	
+	
+	function sendFileFtp($localFile,$uri,$instanceOpt){
+		return false;
+	}
+	function sendFileLocal($localFile,$uri,$instanceOpt){
+		$remotefile = Migration::solveURI($uri,$instanceOpt['path']);
+		if(!empty($remotefile)){
+			App::import('Lib', 'Migration.MigrationConfig');
+			$dry = MigrationConfig::load('dryRun');
+			if($dry){
+				debug('Attempt copy file '.$localFile.' to '.$remotefile);
+				return true;
+			}else{
+				return copy($localFile,$remotefile);
+			}
+		}
+		return false;
 	}
 }
