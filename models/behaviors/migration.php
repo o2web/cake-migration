@@ -179,8 +179,8 @@ class MigrationBehavior extends ModelBehavior {
 		$remoteCond = array();
 		if(!empty($entry[$MR->alias]['remote_id'])){
 			$remoteCond[$remoteModel->alias.'.'.$remoteModel->primaryKey] = $entry[$MR->alias]['remote_id'];
-		}elseif(!empty($settings['remapFields']) && count(array_filter(array_intersect_key($entry[$Model->alias],array_flip((array)$settings['remapFields']))))){
-			foreach((array)$settings['remapFields'] as $field){
+		}elseif(!empty($settings['mapFields']) && count(array_filter(array_intersect_key($entry[$Model->alias],array_flip((array)$settings['mapFields']))))){
+			foreach((array)$settings['mapFields'] as $field){
 				$remoteCond[$remoteModel->alias.'.'.$field] = $entry[$Model->alias][$field];
 			}
 		}

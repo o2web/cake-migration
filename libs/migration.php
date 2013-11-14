@@ -276,7 +276,7 @@ class Migration extends Object {
 		}
 	}
 	
-	function solveURI($uri,$paths = null,$defaultPath = 'app',$ds = null){
+	function solveURI($uri,$paths = null,$basepath=null,$ds = null,$defaultPath = 'app'){
 		if(is_null($ds)) $ds = DS;
 		if(is_null($paths)) $paths = array(
 			'app' => APP,
@@ -286,8 +286,8 @@ class Migration extends Object {
 		if(!is_array($paths)) {
 			$paths = array($defaultPath=>$paths);
 			if($defaultPath == 'app'){
-				$paths['webroot'] = $paths['app'].DS.'webroot';
-				$paths['tmp'] = $paths['app'].DS.'tmp';
+				$paths['webroot'] = $paths['app'].$ds.'webroot';
+				$paths['tmp'] = $paths['app'].$ds.'tmp';
 			}
 		}
 		$parts = explode(':',$uri,2);
@@ -301,17 +301,31 @@ class Migration extends Object {
 		if(empty($s)){
 			return null;
 		}
-		if(empty($paths[$s]) && str_len($s) == 1){ //if true we asume it's an absolute path ex: "c:/folder1/folder2"
+		if(empty($paths[$s]) && strlen($s) == 1){ //if true we asume it's an absolute path ex: "c:/folder1/folder2"
 			return $uri;
 		}elseif(empty($paths[$s])){
 			return null;
 		}
-		return rtrim($paths[$s],$ds).$ds.trim(str_replace('/',$ds,$p),$ds);
+		$l = rtrim($paths[$s],$ds).$ds.trim(str_replace('/',$ds,$p),$ds);
+		if(!empty($basepath)){
+			if(strpos($basepath,':') !== false) { 
+				$basepath = solveURI($basepath,$paths,null,$ds,$defaultPath);
+				if(empty($basepath)){
+					return null;
+				}
+			}
+			$basepath = rtrim($basepath,$ds).$ds;
+			if(strpos($l,$basepath) !== 0){
+				return null;
+			}
+			$l = substr($l,strlen($basepath));
+		}
+		return $l;
 	}
 	
 	function sendFile($localURI,$instance){
 		$localFile = Migration::solveURI($localURI);
-		debug($localFile);
+		//debug($localFile);
 		if(!empty($localFile) && file_exists($localFile)){
 			App::import('Lib', 'Migration.MigrationConfig');
 			$targets = MigrationConfig::load('target_instances');
@@ -336,7 +350,47 @@ class Migration extends Object {
 	
 	
 	function sendFileFtp($localFile,$uri,$instanceOpt){
-		return false;
+		$defOpt = array(
+			'host' => null,
+			'port' => 21,
+			'username' => null,
+			'password' => null,
+			'timeout' => 90,
+			'basepath' => null,
+			'paths' => (!empty($instanceOpt['basepath']) && ($appPos = strpos($instanceOpt['basepath'],'app')) !== false)?substr($instanceOpt['basepath'],0,$appPos+3):'app',
+			'mode' => FTP_BINARY,
+		);
+		$ftpOpt = array_merge($defOpt,$instanceOpt['ftp']);
+		debug($ftpOpt);
+		
+		$res = false;
+		
+		$conn_id = ftp_connect($ftpOpt['host'],$ftpOpt['port'],$ftpOpt['timeout']); 
+		if(!$conn_id){
+			debug('Connection failed');
+			return false;
+		}
+		
+		if (@ftp_login($conn_id, $ftpOpt['username'], $ftpOpt['password'])) {
+			$remotefile = Migration::solveURI($uri,$ftpOpt['paths'],$ftpOpt['basepath'],'/');
+			//debug($remotefile);
+			if(!empty($remotefile)){
+				App::import('Lib', 'Migration.MigrationConfig');
+				$dry = MigrationConfig::load('dryRun');
+				if($dry){
+					debug('Attempt copy file '.$localFile.' to '.$remotefile);
+					$res = true;
+				}else{
+					$res = ftp_put($conn_id, $remotefile, $localFile, $ftpOpt['mode']);
+				}
+			}
+		}else{
+			debug('Login failed');
+		}
+		
+		ftp_close($conn_id);  
+		
+		return $res;
 	}
 	function sendFileLocal($localFile,$uri,$instanceOpt){
 		$remotefile = Migration::solveURI($uri,$instanceOpt['path']);

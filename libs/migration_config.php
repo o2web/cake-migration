@@ -9,12 +9,12 @@ class MigrationConfig extends Object {
 	var $defaultConfig = array(
 		'preset' => array(
 			'Settings.Setting' => array(
-				'remapFields'=>'title',
+				'mapFields'=>'title',
 				'overridable'=>array('string_fre','string_eng','text_fre','text_eng','m_photo_fre','m_photo_eng','m_video_fre','m_video_eng','m_document_fre','m_document_eng','checkbox','select','number','options'),
 				'listFields'=>array('id','title','desc'),
 			),
 			'Multimedia.Multimedium' => array(
-				'remapFields'=>array('filename','path'),
+				'mapFields'=>array('filename','path'),
 				'manual'=>true,
 				'files'=>array(
 					'pathField' => 'path',
