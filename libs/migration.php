@@ -24,13 +24,15 @@ class Migration extends Object {
 		if(empty($migrated)){
 			App::import('Lib', 'Migration.MigrationConfig');
 			$preset = MigrationConfig::load('preset');
+			$exclude = MigrationConfig::load('exclude');
+			$full = MigrationConfig::load('full');
 			
 			$models = Migration::modelList();
 			$migrated = array_values(array_intersect($models,array_keys($preset)));
 			foreach(array_diff($models,$migrated) as $mname){
-				if(Migration::testModelIntegrity($mname)){
+				if(!in_array($mname,$exclude) && Migration::testModelIntegrity($mname)){
 					$Model = ClassRegistry::init($mname);
-					if($Model->Behaviors->attached('Migration')){
+					if($Model->hasField('modified') && ($full || $Model->Behaviors->attached('Migration'))){
 						$p = explode('.',$mname);
 						$migrated[end($p)] = $mname;
 					}
@@ -81,6 +83,8 @@ class Migration extends Object {
 			$preset = MigrationConfig::load('preset');
 			if(!empty($preset[$name])){
 				$Model->Behaviors->attach('Migration.Migration', $preset[$name]);
+			}else{
+				$Model->Behaviors->attach('Migration.Migration');
 			}
 		}
 		App::import('Lib', 'Migration.MigrationConfig');
@@ -98,24 +102,33 @@ class Migration extends Object {
 		if(!empty($remotesModels[$instance.'__'.$localModel->alias])) return $remotesModels[$instance.'__'.$localModel->alias];
 		
 		$ds = Migration::getInstanceDS($instance);
+		if(empty($ds)) return null;
 		$obj = new Model(array('table' => $localModel->useTable,'alias'=>Inflector::classify($instance).$localModel->alias,'ds' =>$ds));
+
 		$obj->primaryKey = $localModel->primaryKey;
 		$remotesModels[$instance.'__'.$localModel->alias] = $obj;
-		
+			
 		return $obj;
 	}
 	
 	function getInstanceDS($instance){
 		static $remoteDS;
-		if(!empty($remoteDS[$instance])) $remoteDS[$instance];
+		if(!empty($remoteDS[$instance])) return $remoteDS[$instance];
 	
 		$name = 'remote_'.$instance;
 		
 		App::import('Lib', 'Migration.MigrationConfig');
 		$targets = MigrationConfig::load('target_instances');
 		$default = ConnectionManager::getDataSource('default');
-		$opt = array_merge($default->config,$targets[$instance]);
-		if(ConnectionManager::create($name,$opt)){
+		$instanceOpt = $targets[$instance];
+		if(empty($instanceOpt['database']) || is_string($instanceOpt['database'])){
+			$instanceOpt['database'] = array_intersect_key($instanceOpt, array_flip(array('driver', 'persistent', 'host', 'login', 'password', 'database', 'prefix', 'encoding')));
+		}
+		$opt = array_merge($default->config,$instanceOpt['database']);
+		//debug($opt);
+		//exit();
+		if($ds = ConnectionManager::create($name,$opt)){
+			//debug($ds);
 			$remoteDS[$instance] = $name;
 			return $name;
 		}else{
@@ -407,3 +420,4 @@ class Migration extends Object {
 		return false;
 	}
 }
+?>

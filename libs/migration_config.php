@@ -23,6 +23,8 @@ class MigrationConfig extends Object {
 				)
 			)
 		),
+		'full'=>false,
+		'exclude' => array('History','Migration.MigrationNode','Migration.MigrationRemote'),
 		'instance_name' => null,
 		'target_instances' => array(),
 		'harmfullBehaviors' => array('History'),

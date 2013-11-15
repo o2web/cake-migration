@@ -7,6 +7,12 @@ class MigrationController extends MigrationAppController {
 	function admin_index() {
 		App::import('Lib', 'Migration.Migration');
 		
+		$targets = Migration::targetList();
+		if(empty($targets)){
+			$this->render('admin_missing_target');
+			return;
+		}
+		
 		$posted = !empty($this->data);
 		if($posted){
 			foreach($this->data['Migration']['targets'] as $target => $active){
@@ -35,7 +41,7 @@ class MigrationController extends MigrationAppController {
 				if(!$posted) $this->data['Migration']['models'][$m['name']] = 1;
 			}
 		}
-		$targets = Migration::targetList();
+		
 		if(!$posted){
 			foreach($targets as $key => $label){
 				$this->data['Migration']['targets'][$key] = 1;

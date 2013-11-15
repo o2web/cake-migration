@@ -69,30 +69,37 @@ class MigrationBehavior extends ModelBehavior {
 		}
 		return $fields;
 	}
-	
-	function migrationPendingCount($Model){
+	function _getLastSync($Model,$targetInstance=null){
+		$settings = $this->settings[$Model->alias];
+		$lastSync = strtotime(MigrationConfig::load('last_sync'));
+		if(!empty($settings['last_sync'])){
+			$lastSync = max($lastSync,strtotime($settings['last_sync']));
+		}
+		return $lastSync;
+	}
+	function _pendingFindOpt($Model,$findOpt=array(),$targetInstance=null){
 		$settings = $this->settings[$Model->alias];
 		$MR = $this->MigrationRemote;
 		$MN = $this->MigrationNode;
 		$fullName = $this->getFullName($Model);
-		$findOpt = array(
-			'fields'=>array('COUNT(DISTINCT '.$Model->alias.'.'.$Model->primaryKey.') as count'),
+		$findOpt = Set::merge(array(
 			'conditions'=>array('or'=>array(
 				$MR->alias.'.updated < '.$Model->alias.'.modified',
 				$MR->alias.'.invalidated' => 1,
 				$MR->alias.'.id IS NULL'
 			)),
 			'joins' => array(
-				array(
+				'MR' => array(
 					'alias' => $MR->alias,
 					'table'=> $MR->useTable,
 					'type' => 'LEFT',
 					'conditions' => array(
 						$MR->alias.'.model' => $fullName,
+						
 						$MR->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
 					)
 				),
-				array(
+				'MN' => array(
 					'alias' => $MN->alias,
 					'table'=> $MN->useTable,
 					'type' => 'LEFT',
@@ -103,7 +110,10 @@ class MigrationBehavior extends ModelBehavior {
 				)
 			),
 			'recursive' => -1,
-		);
+		),$findOpt);
+		if(!empty($targetInstance)){
+			$findOpt['joins']['MR']['conditions'][$MR->alias.'.instance'] = $targetInstance;
+		}
 		if($settings['manual']){
 			$findOpt['conditions'][$MN->alias.'.tracked'] = 1;
 		}else{
@@ -112,54 +122,38 @@ class MigrationBehavior extends ModelBehavior {
 				$MN->alias.'.tracked IS NULL'
 			));
 		}
+		
+		$lastSync = $this->_getLastSync($Model,$targetInstance);
+		if(!empty($lastSync)){
+			$format = $Model->getDataSource()->columns['datetime']['format'];
+			$findOpt['conditions'][] =	array('or'=>array(
+				$Model->alias.'.modified >' => date($format,$lastSync),
+				$Model->alias.'.modified IS NULL'
+			));
+		}
+		
+		$findOpt['joins'] = array_values($findOpt['joins']);
+		return $findOpt;
+	}
+	
+	function migrationPendingCount($Model){
+		
+		$findOpt = $this->_pendingFindOpt($Model,array(
+			'fields'=>array('COUNT(DISTINCT '.$Model->alias.'.'.$Model->primaryKey.') as count')
+		));
+		
 		$count = $Model->find('first',$findOpt);
 		return $count;
 	}
 	
 	function migrateBatch($Model,$targetInstance,$limit = 20){
-		$settings = $this->settings[$Model->alias];
 		$MR = $this->MigrationRemote;
-		$MN = $this->MigrationNode;
-		$fullName = $this->getFullName($Model);
-		$findOpt = array(
+		
+		$findOpt = $this->_pendingFindOpt($Model,array(
 			'fields' => array($Model->alias.'.*',$MR->alias.'.*'),
-			'conditions'=>array('or'=>array(
-				$MR->alias.'.updated < '.$Model->alias.'.modified',
-				$MR->alias.'.invalidated' => 1,
-				$MR->alias.'.id IS NULL'
-			)),
-			'joins' => array(
-				array(
-					'alias' => $MR->alias,
-					'table'=> $MR->useTable,
-					'type' => 'LEFT',
-					'conditions' => array(
-						$MR->alias.'.model' => $fullName,
-						$MR->alias.'.instance' => $targetInstance,
-						$MR->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
-					)
-				),
-				array(
-					'alias' => $MN->alias,
-					'table'=> $MN->useTable,
-					'type' => 'LEFT',
-					'conditions' => array(
-						$MN->alias.'.model' => $fullName,
-						$MN->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
-					)
-				)
-			),
 			'limit' => $limit,
-			'recursive' => -1,
-		);
-		if($settings['manual']){
-			$findOpt['conditions'][$MN->alias.'.tracked'] = 1;
-		}else{
-			$findOpt['conditions'][] = array('or'=>array(
-				$MN->alias.'.tracked' => 0,
-				$MN->alias.'.tracked IS NULL'
-			));
-		}
+		),$targetInstance);
+		
 		$entries = $Model->find('all',$findOpt);
 		//debug($entries);
 		foreach($entries as $entry){
@@ -351,9 +345,14 @@ class MigrationBehavior extends ModelBehavior {
 		return $entry;
 	}
 	
-	function getRemoteId($Model,$local_id,$targetInstance){
+	function getRemoteId($Model,$localEntry,$targetInstance){
 		$MR = $this->MigrationRemote;
 		$fullName = $this->getFullName($Model);
+		if(is_numeric($localEntry)){
+			$local_id = $localEntry;
+		}else{
+			$local_id = $localEntry[$Model->alias][$Model->primaryKey];
+		}
 		
 		$remoteNode = $MR->find('first',array('conditions'=>array(
 			$MR->alias.'.model' => $fullName,
@@ -364,6 +363,17 @@ class MigrationBehavior extends ModelBehavior {
 		if($remoteNode){
 			return $remoteNode[$MR->alias]['remote_id'];
 		}
+		
+		$lastSync = $this->_getLastSync($Model,$targetInstance);
+		if(!empty($lastSync)){
+			if(is_numeric($localEntry)){
+				$localEntry = $Model->find('first',array('conditions'=>array($Model->alias.'.'.$Model->primaryKey=>$localEntry)));
+			}
+			if(strtotime($localEntry[$Model->alias]['modified']) <= $lastSync){
+				return $local_id;
+			}
+		}
+		
 		return null;
 	}
 	

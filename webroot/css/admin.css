@@ -12,3 +12,37 @@
     border-style: solid;
     border-width: 1px 0 0 0;
 }
+
+.checkboxList:after {
+	visibility: hidden;
+	display: block;
+	font-size: 0;
+	content: " ";
+	clear: both;
+	height: 0;
+}
+* html              .checkboxList { zoom: 1; } /* IE6 */
+*:first-child+html  .checkboxList { zoom: 1; } /* IE7 */
+
+.checkboxList .input.checkbox{
+	float:left;
+	clear:none;
+}
+
+.modelList.checkboxList .input.checkbox{
+	height:50px;
+}
+
+.modelList.checkboxList .input.checkbox label {
+    width: 250px;
+}
+
+
+.checkboxList .input.checkbox label {
+    font-weight:normal;
+	color:#888888;
+}
+.checkboxList .input.checkbox.selected label {
+    font-weight:bold;
+	color:#000000;
+}
