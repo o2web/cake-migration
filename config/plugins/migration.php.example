@@ -1,0 +1,7 @@
+<?php
+	Configure::write('Migration.instance_name', 'Master');
+	Configure::write('Migration.target_instances', array(
+		'Defi2' => array(
+			'database' => 'defi2',
+		)
+	));
