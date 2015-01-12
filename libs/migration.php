@@ -408,6 +408,7 @@ class Migration extends Object {
 	function sendFileLocal($localFile,$uri,$instanceOpt){
 		$remotefile = Migration::solveURI($uri,$instanceOpt['path']);
 		if(!empty($remotefile)){
+			Migration::createFoldersFor($remotefile);
 			App::import('Lib', 'Migration.MigrationConfig');
 			$dry = MigrationConfig::load('dryRun');
 			if($dry){
@@ -418,6 +419,20 @@ class Migration extends Object {
 			}
 		}
 		return false;
+	}
+	function createFoldersFor($file){
+		$folder = dirname($file);
+		if(!file_exists($folder)){
+			App::import('Lib', 'Migration.MigrationConfig');
+			Migration::createFoldersFor($folder);
+			$dry = MigrationConfig::load('dryRun');
+			if($dry){
+				debug('Create folder : '.$folder);
+				return true;
+			}else{
+				return mkdir($folder);
+			}
+		}
 	}
 }
 ?>
