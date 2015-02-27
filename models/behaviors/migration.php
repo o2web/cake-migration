@@ -23,6 +23,10 @@ class MigrationBehavior extends ModelBehavior {
 		$this->MigrationMissing = ClassRegistry::init('Migration.MigrationMissing');
 	}
 	
+	function msg($msg){
+		debug($msg);
+	}
+	
 	function setPluginName($Model,$plugin){
 		$this->settings[$Model->alias]['plugin'] = $plugin;
 	}
@@ -212,7 +216,7 @@ class MigrationBehavior extends ModelBehavior {
 	
 	function resolveRemoteConflict($Model, $entry, $remoteEntry, $targetInstance){
 		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
-		debug('Cant resolve conflict');
+		$this->msg('Cant resolve conflict');
 		return false;
 	}
 	
@@ -334,7 +338,7 @@ class MigrationBehavior extends ModelBehavior {
 			if(empty($existingsByCode[$code])){
 				$MMissing->create();
 				if($dry){
-					debug('Save attempt on '.$MMissing->alias);
+					$this->msg('Save attempt on '.$MMissing->alias);
 				}else{
 					$MMissing->save($m);
 				}
@@ -344,7 +348,7 @@ class MigrationBehavior extends ModelBehavior {
 		}
 		if(!empty($existingsByCode)){
 			if($dry){
-				debug('Delete attempt on '.$MMissing->alias);
+				$this->msg('Delete attempt on '.$MMissing->alias);
 			}else{
 				$MMissing->deleteAll(array($MMissing->alias.'.id'=>array_values($existingsByCode)));
 			}
@@ -365,14 +369,14 @@ class MigrationBehavior extends ModelBehavior {
 		$def = !$settings['manual'];
 		if(!empty($gdata[(int)$def])){
 			if($dry){
-				debug('Update attempt on '.$MN->alias);
+				$this->msg('Update attempt on '.$MN->alias);
 			}else{
 				$MN->updateAll(array('tracked'=>null), array('model'=>$fullName,'local_id'=>$gdata[(int)$def]));
 			}
 		}
 		if(!empty($gdata[(int)!$def])){
 			if($dry){
-				debug('Update attempt on '.$MN->alias);
+				$this->msg('Update attempt on '.$MN->alias);
 			}else{
 				$MN->updateAll(array('tracked'=>(int)!$def), array('model'=>$fullName,'local_id'=>$gdata[(int)!$def]));
 			}
@@ -385,7 +389,7 @@ class MigrationBehavior extends ModelBehavior {
 					'tracked'=>(int)!$def,
 				);
 				if($dry){
-					debug('Save attempt on '.$MN->alias);
+					$this->msg('Save attempt on '.$MN->alias);
 				}else{
 					$MN->save($node);
 				}

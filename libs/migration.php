@@ -18,6 +18,10 @@ class Migration extends Object {
 		return array_values(array_diff($models,$exclude));
 	}
 	
+	function msg($msg){
+		debug($msg);
+	}
+	
 	function migratingModels(){
 		$migrated = Cache::read('migrating_models');
 		
@@ -370,25 +374,25 @@ class Migration extends Object {
 			'mode' => FTP_BINARY,
 		);
 		$ftpOpt = array_merge($defOpt,$instanceOpt['ftp']);
-		debug($ftpOpt);
+		// debug($ftpOpt);
 		
 		$res = false;
 		
 		$conn_id = ftp_connect($ftpOpt['host'],$ftpOpt['port'],$ftpOpt['timeout']); 
 		if(!$conn_id){
-			debug('Connection failed');
+			$this->msg('Connection failed');
 			return false;
 		}
 		
 		if (@ftp_login($conn_id, $ftpOpt['username'], $ftpOpt['password'])) {
 			$remotefile = '/'.Migration::solveURI($uri,$ftpOpt['paths'],$ftpOpt['basepath'],'/');
-			debug($remotefile);
+			// debug($remotefile);
 			if(!empty($remotefile)){
 				if(Migration::ftpCreateFoldersFor($conn_id, $remotefile)){
 					App::import('Lib', 'Migration.MigrationConfig');
 					$dry = MigrationConfig::load('dryRun');
 					if($dry){
-						debug('Attempt copy file '.$localFile.' to '.$remotefile);
+						$this->msg('Attempt copy file '.$localFile.' to '.$remotefile);
 						$res = true;
 					}else{
 						$res = ftp_put($conn_id, $remotefile, $localFile, $ftpOpt['mode']);
@@ -396,7 +400,7 @@ class Migration extends Object {
 				}
 			}
 		}else{
-			debug('Login failed');
+			$this->msg('Login failed');
 		}
 		
 		ftp_close($conn_id);  
@@ -410,12 +414,12 @@ class Migration extends Object {
 			if(Migration::ftpCreateFoldersFor($conn_id,$folder)){
 				$dry = MigrationConfig::load('dryRun');
 				if($dry){
-					debug('Create folder : '.$folder);
+					$this->msg('Create folder : '.$folder);
 					return true;
 				}else{
 					$res = ftp_mkdir($conn_id, $folder);
 					if(!$res){
-						debug('Failed to create folder : '.$folder);
+						$this->msg('Failed to create folder : '.$folder);
 					}
 					return $res;
 				}
@@ -432,7 +436,7 @@ class Migration extends Object {
 			App::import('Lib', 'Migration.MigrationConfig');
 			$dry = MigrationConfig::load('dryRun');
 			if($dry){
-				debug('Attempt copy file '.$localFile.' to '.$remotefile);
+				$this->msg('Attempt copy file '.$localFile.' to '.$remotefile);
 				return true;
 			}else{
 				return copy($localFile,$remotefile);
@@ -447,7 +451,7 @@ class Migration extends Object {
 			Migration::createFoldersFor($folder);
 			$dry = MigrationConfig::load('dryRun');
 			if($dry){
-				debug('Create folder : '.$folder);
+				$this->msg('Create folder : '.$folder);
 				return true;
 			}else{
 				return mkdir($folder);

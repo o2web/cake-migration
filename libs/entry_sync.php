@@ -13,6 +13,10 @@
 			$this->targetInstance = $this->Batch->Process->targetInstance;
 		}
 		
+		function msg($msg){
+			$this->Batch->Process->msg($msg);
+		}
+		
 		function sync(){
 			// return $this->LocalModel->syncRemoteEntry($this->entry, $this->targetInstance);
 			// function syncRemoteEntry($Model, $entry, $targetInstance){
@@ -186,7 +190,7 @@
 			$dry = MigrationConfig::load('dryRun');
 			if($dry){
 				$saved = true;
-				debug('Save attempt on '.$remoteModel->alias);
+				$this->msg('Save attempt on '.$remoteModel->alias);
 			}else{
 				$saved = $remoteModel->save($data);
 			}
@@ -210,7 +214,7 @@
 			$dry = MigrationConfig::load('dryRun');
 			if($dry){
 				$saved = true;
-				debug('Save attempt on '.$remoteModel->alias);
+				$this->msg('Save attempt on '.$remoteModel->alias);
 			}else{
 				$saved = $remoteModel->save($data);
 			}
@@ -260,7 +264,7 @@
 			$dry = MigrationConfig::load('dryRun');
 			if($dry){
 				$saved = true;
-				debug('Save attempt on '.$MR->alias);
+				$this->msg('Save attempt on '.$MR->alias);
 			}else{
 				$saved = $MR->save($data);
 			}
@@ -302,7 +306,7 @@
 			if(!empty($toInvalidate)){
 				$dry = MigrationConfig::load('dryRun');
 				if($dry){
-					debug('Update attempt on '.$MR->alias);
+					$this->msg('Update attempt on '.$MR->alias);
 				}else{
 					$MR->updateAll(array('invalidated'=>1), array('id'=>array_values($idsToInvalidate)));
 				}

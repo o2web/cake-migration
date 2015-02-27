@@ -27,6 +27,8 @@ class MigrationController extends MigrationAppController {
 						}
 					}
 					$process->autoSolve();
+					
+					$this->Session->setFlash(implode("<br>\n",$process->msgs));
 				}
 			}
 			$this->Migrated->clear();

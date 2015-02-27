@@ -10,6 +10,11 @@
 			$this->targetInstance = $targetInstance;
 		}
 		
+		var $msgs = array();
+		function msg($msg){
+			$this->msgs[] = $msg;
+		}
+		
 		function processBatch($modelName,$options = array()){
 			$Model = Migration::getLocalModel($modelName);
 			$this->batches[] = $batch = new MigrationBatch($this,$Model,$options);

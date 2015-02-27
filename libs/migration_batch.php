@@ -19,6 +19,10 @@
 			
 		}
 		
+		function msg($msg){
+			$this->Process->msg($msg);
+		}
+		
 		function process(){
 			
 			$MR = $this->MigrationRemote;
@@ -31,7 +35,7 @@
 			
 			foreach($entries as $entry){
 				$res = $this->syncRemoteEntry($entry);
-				debug('ID : '.$entry[$this->LocalModel->alias][$this->LocalModel->primaryKey].' - '.($res?'ok':'error'));
+				$this->msg('ID : '.$entry[$this->LocalModel->alias][$this->LocalModel->primaryKey].' - '.($res?'ok':'error'));
 			}
 		}
 		
