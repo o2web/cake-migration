@@ -31,10 +31,15 @@ class MigrationController extends MigrationAppController {
 					$this->Session->setFlash(implode("<br>\n",$process->msgs));
 				}
 			}
-			$this->Migrated->clear();
-			// $this->redirect(array('action' => 'index'));
-			$this->data = array();
-			$posted = false;
+			
+			$dry = MigrationConfig::load('dryRun');
+			if($dry){
+				$this->data = array();
+				$posted = false;
+			}else{
+				$this->Migrated->clear();
+				$this->redirect(array('action' => 'index'));
+			}
 		}
 		
 		$models = Set::normalize(Migration::migratingModels());
