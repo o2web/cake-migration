@@ -71,11 +71,6 @@ class Migration extends Object {
 		return $list;
 	}
 	
-	function processBatch($modelName,$targetInstance,$limit = 20){
-		$Model = Migration::getLocalModel($modelName);
-		$Model->migrateBatch($targetInstance,$limit);
-	}
-	
 	function getLocalModel($name){
 		$Model = ClassRegistry::init($name);
 		if(!$Model->Behaviors->attached('Migration')){
@@ -104,7 +99,7 @@ class Migration extends Object {
 		$ds = Migration::getInstanceDS($instance);
 		if(empty($ds)) return null;
 		$obj = new Model(array('table' => $localModel->useTable,'alias'=>Inflector::classify($instance).$localModel->alias,'ds' =>$ds));
-
+		
 		$obj->primaryKey = $localModel->primaryKey;
 		$remotesModels[$instance.'__'.$localModel->alias] = $obj;
 			
@@ -282,6 +277,7 @@ class Migration extends Object {
 						'path' => $field.'.{n}.id',
 						'unsetLevel' => 2,
 						'autoTrack' => true,
+						'autoSelect' => true,
 					);
 				}
 			}
@@ -385,16 +381,18 @@ class Migration extends Object {
 		}
 		
 		if (@ftp_login($conn_id, $ftpOpt['username'], $ftpOpt['password'])) {
-			$remotefile = Migration::solveURI($uri,$ftpOpt['paths'],$ftpOpt['basepath'],'/');
-			//debug($remotefile);
+			$remotefile = '/'.Migration::solveURI($uri,$ftpOpt['paths'],$ftpOpt['basepath'],'/');
+			debug($remotefile);
 			if(!empty($remotefile)){
-				App::import('Lib', 'Migration.MigrationConfig');
-				$dry = MigrationConfig::load('dryRun');
-				if($dry){
-					debug('Attempt copy file '.$localFile.' to '.$remotefile);
-					$res = true;
-				}else{
-					$res = ftp_put($conn_id, $remotefile, $localFile, $ftpOpt['mode']);
+				if(Migration::ftpCreateFoldersFor($conn_id, $remotefile)){
+					App::import('Lib', 'Migration.MigrationConfig');
+					$dry = MigrationConfig::load('dryRun');
+					if($dry){
+						debug('Attempt copy file '.$localFile.' to '.$remotefile);
+						$res = true;
+					}else{
+						$res = ftp_put($conn_id, $remotefile, $localFile, $ftpOpt['mode']);
+					}
 				}
 			}
 		}else{
@@ -404,6 +402,28 @@ class Migration extends Object {
 		ftp_close($conn_id);  
 		
 		return $res;
+	}
+	function ftpCreateFoldersFor($conn_id,$file){
+		$folder = dirname($file);
+		if(!@ftp_chdir($conn_id, $folder)){
+			App::import('Lib', 'Migration.MigrationConfig');
+			if(Migration::ftpCreateFoldersFor($conn_id,$folder)){
+				$dry = MigrationConfig::load('dryRun');
+				if($dry){
+					debug('Create folder : '.$folder);
+					return true;
+				}else{
+					$res = ftp_mkdir($conn_id, $folder);
+					if(!$res){
+						debug('Failed to create folder : '.$folder);
+					}
+					return $res;
+				}
+			}else{
+				return false;
+			}
+		}
+		return true;
 	}
 	function sendFileLocal($localFile,$uri,$instanceOpt){
 		$remotefile = Migration::solveURI($uri,$instanceOpt['path']);

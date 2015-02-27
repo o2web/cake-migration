@@ -2,6 +2,7 @@
 class MigrationNodesController extends MigrationAppController {
 
 	var $name = 'MigrationNodes';
+	var $components = array('Migration.Migrated');
 
 	function admin_index($modelName) {
 		App::import('Lib', 'Migration.Migration');
@@ -24,9 +25,7 @@ class MigrationNodesController extends MigrationAppController {
 		}
 		if($q !== null) {
 			$this->passedArgs['q'] = $q;
-			foreach ($fields as $fieldName=>$field) {
-				$this->paginate['conditions']['OR'][$Model->alias.'.'.$fieldName.' LIKE'] = '%'.$q.'%';
-			}
+			$this->paginate['conditions'] = $Model->migrationFindCond($q);
 		}
 		$entries = $this->paginate($Model->name);
 		$manual = $Model->migrationSettings('manual');
@@ -43,6 +42,68 @@ class MigrationNodesController extends MigrationAppController {
 		$this->set('modelPrimary', $Model->primaryKey);
 		$this->set('fields', $fields);
 		$this->set('migrationNodes', $entries);
+	}
+	
+	function admin_pendings($modelName) {
+		App::import('Lib', 'Migration.Migration');
+		$modelName = Migration::urlParamToModelName($modelName);
+		$Model = Migration::getLocalModel($modelName);
+		$this->loadModel($modelName);
+		
+		$this->paginate = array_merge($this->paginate,$Model->migrationPendingPaginateOpts());
+		
+		$fields = $Model->migrationListFields();
+		
+		$q = null;
+		if(isset($this->params['named']['q']) && strlen(trim($this->params['named']['q'])) > 0) {
+			$q = $this->params['named']['q'];
+		} elseif(isset($this->data['MigrationNode']['q']) && strlen(trim($this->data['MigrationNode']['q'])) > 0) {
+			$q = $this->data['MigrationNode']['q'];
+			$this->params['named']['q'] = $q;
+		}
+		if($q !== null) {
+			$this->passedArgs['q'] = $q;
+			$this->paginate['conditions'] = $Model->migrationFindCond($q);
+		}
+		
+		$entries = $this->paginate($Model->name);
+		if( !empty($this->data['MigrationNode']['migrated']) ) {
+			$this->Migrated->setMode($Model->alias,$this->data['MigrationNode']['includeMode']);
+			$this->Migrated->updateStates($Model->alias,$this->data['MigrationNode']['migrated']);
+			$this->redirect(array('plugin'=>'migration','controller'=>'migration','action' => 'index'));
+		}else{
+			$this->data['MigrationNode']['includeMode'] = $this->Migrated->isIncludeMode($Model->alias);
+			$this->data['MigrationNode']['migrated'] = $this->Migrated->getEntriesStates($Model,$entries);
+		}
+		
+		$this->set('modelAlias', $Model->alias);
+		$this->set('modelPrimary', $Model->primaryKey);
+		$this->set('fields', $fields);
+		$this->set('migrationNodes', $entries);
+		
+	}
+	
+	function admin_diff($modelName,$id) {
+		App::import('Lib', 'Migration.Migration');
+		$modelName = Migration::urlParamToModelName($modelName);
+		$Model = Migration::getLocalModel($modelName);
+		$this->loadModel($modelName);
+		
+		$Model->joinMigrationRemote();
+		$local = $Model->read(null,$id);
+		$targets = Migration::targetList();
+		$remotes = array();
+		foreach($targets as $key => $label){
+			$remoteModel = Migration::getRemoteModel($Model,$key);
+			$remotes[$key] = $Model->getRemoteEntry($local,$key);
+			$remotes[$key]['alias'] = $remoteModel->alias;
+		}
+		$local = $Model->getRawEntry($local);
+		
+		$this->set('local', $local);
+		$this->set('modelAlias', $Model->alias);
+		$this->set('remotes', $remotes);
+		$this->set('targets', $targets);
 	}
 
 	function admin_edit($id = null) {

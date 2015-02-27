@@ -1,0 +1,119 @@
+// CLEARFIX
+@mixin clearfix()
+  zoom: 1
+  &:before, &:after
+    content: "\0020" 
+    display: block 
+    height: 0 
+    overflow: hidden
+  &:after
+    clear: both
+
+
+.migrationNodes
+  table
+    border: none
+
+    .firstCol
+      border-color: #CCCCCC
+      border-style: solid
+      border-width: 0 1px 0 1px
+
+    th.invisible
+      background: none
+      border-color: #CCCCCC
+      border-style: solid
+      border-width: 1px 0 0 0
+
+    th.migrated
+      width: 80px
+
+  .includeModeInput
+    position: relative
+
+  .includeModeInput input
+    opacity: 0
+    filter: alpha(opacity = 0)
+    position: absolute
+
+.checkboxList
+  @include clearfix()
+  .input.checkbox
+    float: left
+    clear: none
+
+  .input.checkbox
+    label
+      font-weight: normal
+      color: #888888
+    &.selected label
+      font-weight: bold
+      color: #000000
+  
+.modelList.checkboxList
+  .input.checkbox
+    height: 50px
+
+  .input.checkbox label
+    width: 250px
+
+
+.migrationNodeDiff table.diff
+  border-width: 1px
+
+  th
+    text-align: center
+    font-size: 1.5em
+    padding: 5px
+
+    select
+      border: none
+      background: #545454
+      color: #ccc
+      width: auto
+
+  td
+    border: none
+    text-align: left
+    padding: 10px
+    padding-bottom: 25px
+
+  tr.different
+    td
+      background: #FFD0AF
+
+    &.odd td
+      background: #F2BB99
+
+    &:hover td
+      background: #FFFFAF
+  
+  
+  tr.missing 
+    .missingMsg
+      font-size: 16px
+    .remotes h2
+      display: none
+
+  .fieldTitle
+    border-bottom: 1px solid #ccc
+    padding-top: 5px
+    padding-bottom: 5px
+    /*text-align: center;
+    font-weight: bold
+
+  .diffProcessed div.val
+    display: none
+
+  div.changes
+    display: none
+
+  .diffProcessed div.changes
+    display: block
+
+  div.changes 
+    .change
+      background: #FF0000
+
+    .change > *, .changedTag
+      background: #f76

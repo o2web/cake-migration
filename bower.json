@@ -1,0 +1,6 @@
+{
+  "name": "o2cms Migration",
+  "dependencies": {
+    "jsdiff": "~1.2"
+  }
+}

@@ -24,10 +24,20 @@
 		<?php
 			$inputs = array();
 			foreach($models as $model){
-				$after = $this->Html->link(__('Setting', true), array('plugin'=>'migration','controller'=>'migration_nodes','action' => 'index',$model['param']),array('class'=>'btSettings'));
+				$after = '';
+				if($model['count'] > 0){
+					$after .= $this->Html->link(__('List', true), array('plugin'=>'migration','controller'=>'migration_nodes','action' => 'pendings',$model['param']),array('class'=>'btList'));
+					$after .= ' - ';
+				}
+				$after .= $this->Html->link(__('Setting', true), array('plugin'=>'migration','controller'=>'migration_nodes','action' => 'index',$model['param']),array('class'=>'btSettings'));
+				
+				$count = $model['count'];
+				if(isset($model['migrated_count']) && $model['migrated_count'] != $count) {
+					$count = $model['migrated_count'] .'/'.$count;
+				}
 				$inputs[__($model['class'],true)] = $this->Form->input('Migration.models.'.$model['name'],array(
 					'type'=>'checkbox',
-					'label'=>__(Inflector::humanize(Inflector::underscore($model['class'])),true).' ('.sprintf(__('%s Pendings', true), $model['count']).')',
+					'label'=>__(Inflector::humanize(Inflector::underscore($model['class'])),true).' ('.sprintf(__('%s Pendings', true), $count).')',
 					'options'=>false,
 					'after'=>$after
 				));
@@ -57,6 +67,6 @@
 </div>
 <div class="actions">
 	<ul>
-		<li><?php echo $this->Html->link(__('Clear Cache', true), array('action' => 'clear_cache')); ?></li>
+		<li><?php echo $this->Html->link(__('Clear Cache', true), array('plugin'=>'migration','controller'=>'migration','action' => 'clear_cache')); ?></li>
 	</ul>
 </div>

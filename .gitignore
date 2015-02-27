@@ -1,0 +1,10 @@
+webroot/bower_components/*
+!webroot/bower_components/jsdiff
+webroot/bower_components/jsdiff/*
+!webroot/bower_components/jsdiff/diff.js
+
+webroot/js/*.map
+webroot/css/*.map
+.sass-cache
+/css
+/.bowerrc

@@ -40,8 +40,7 @@ class MigrationBehavior extends ModelBehavior {
 		return $settings;
 	}
 	
-	function migrationPaginateOpts($Model){
-		$opts = array();
+	function joinMigrationNode($Model,$reset=true){
 		$fullName = $this->getFullName($Model);
 		$MN = $this->MigrationNode;
 		$Model->bindModel(
@@ -52,8 +51,25 @@ class MigrationBehavior extends ModelBehavior {
 					'conditions' => array($MN->alias.'.model' => $fullName)
 				)
 			))
-		,false);
+		,$reset);
+	}
+	function joinMigrationRemote($Model,$reset=true){
+		$fullName = $this->getFullName($Model);
+		$MR = $this->MigrationRemote;
+		$Model->bindModel(
+			array('hasOne' => array(
+				$MR->alias => array(
+					'className' => $MR->name,
+					'foreignKey' => 'local_id',
+					'conditions' => array($MR->alias.'.model' => $fullName)
+				)
+			))
+		,$reset);
+	}
 		
+	function migrationPaginateOpts($Model){
+		$opts = array();
+		$Model->joinMigrationNode(false);
 		return $opts;
 	}
 	
@@ -69,7 +85,17 @@ class MigrationBehavior extends ModelBehavior {
 		}
 		return $fields;
 	}
-	function _getLastSync($Model,$targetInstance=null){
+	
+	
+	function migrationFindCond($Model,$q){
+		$cond = array('OR'=>array());
+		$fields = $Model->migrationListFields();
+		foreach ($fields as $fieldName=>$field) {
+			$cond['OR'][$Model->alias.'.'.$fieldName.' LIKE'] = '%'.$q.'%';
+		}
+		return $cond;
+	}
+	function getLastSync($Model,$targetInstance=null){
 		$settings = $this->settings[$Model->alias];
 		$lastSync = strtotime(MigrationConfig::load('last_sync'));
 		if(!empty($settings['last_sync'])){
@@ -77,7 +103,7 @@ class MigrationBehavior extends ModelBehavior {
 		}
 		return $lastSync;
 	}
-	function _pendingFindOpt($Model,$findOpt=array(),$targetInstance=null){
+	function pendingFindOpt($Model,$findOpt=array(),$targetInstance=null){
 		$settings = $this->settings[$Model->alias];
 		$MR = $this->MigrationRemote;
 		$MN = $this->MigrationNode;
@@ -114,6 +140,9 @@ class MigrationBehavior extends ModelBehavior {
 		if(!empty($targetInstance)){
 			$findOpt['joins']['MR']['conditions'][$MR->alias.'.instance'] = $targetInstance;
 		}
+		if(!empty($Model->hasOne['MigrationNode']) && $findOpt['recursive'] > -1){
+			unset($findOpt['joins']['MN']);
+		}
 		if($settings['manual']){
 			$findOpt['conditions'][$MN->alias.'.tracked'] = 1;
 		}else{
@@ -123,7 +152,7 @@ class MigrationBehavior extends ModelBehavior {
 			));
 		}
 		
-		$lastSync = $this->_getLastSync($Model,$targetInstance);
+		$lastSync = $this->getLastSync($Model,$targetInstance);
 		if(!empty($lastSync)){
 			$format = $Model->getDataSource()->columns['datetime']['format'];
 			$findOpt['conditions'][] =	array('or'=>array(
@@ -136,9 +165,15 @@ class MigrationBehavior extends ModelBehavior {
 		return $findOpt;
 	}
 	
+	function migrationPendingPaginateOpts($Model){
+		$Model->joinMigrationNode(false);
+		// return array();
+		return $this->pendingFindOpt($Model,array('recursive'=>0));
+	}
+	
 	function migrationPendingCount($Model){
 		
-		$findOpt = $this->_pendingFindOpt($Model,array(
+		$findOpt = $this->pendingFindOpt($Model,array(
 			'fields'=>array('COUNT(DISTINCT '.$Model->alias.'.'.$Model->primaryKey.') as count')
 		));
 		
@@ -146,203 +181,39 @@ class MigrationBehavior extends ModelBehavior {
 		return $count;
 	}
 	
-	function migrateBatch($Model,$targetInstance,$limit = 20){
-		$MR = $this->MigrationRemote;
-		
-		$findOpt = $this->_pendingFindOpt($Model,array(
-			'fields' => array($Model->alias.'.*',$MR->alias.'.*'),
-			'limit' => $limit,
-		),$targetInstance);
-		
-		$entries = $Model->find('all',$findOpt);
-		//debug($entries);
-		foreach($entries as $entry){
-			$res = $this->syncRemoteEntry($Model, $entry, $targetInstance);
-			debug('ID : '.$entry[$Model->alias][$Model->primaryKey].' - '.($res?'ok':'error'));
-		}
-	}
 	
-	
-	function syncRemoteEntry($Model, $entry, $targetInstance){
+	function getRemoteEntry($Model, $entry, $targetInstance){
+		$remoteEntry = null;
 		$settings = $this->settings[$Model->alias];
 		$MR = $this->MigrationRemote;
 		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
 		if(is_numeric($entry)){
-			debug('TODO');
+			$Model->joinMigrationRemote();
+			$entry = $Model->find(null,$entry);
 		}
 		$remoteCond = array();
-		if(!empty($entry[$MR->alias]['remote_id'])){
+		$lastSync = $this->getLastSync($Model,$targetInstance);
+		
+		if(!empty($lastSync) && strtotime($entry[$Model->alias]['created']) <= $lastSync){
+			$remoteCond[$remoteModel->alias.'.'.$remoteModel->primaryKey] = $entry[$Model->alias][$Model->primaryKey];
+		}elseif(!empty($entry[$MR->alias]['remote_id'])){
 			$remoteCond[$remoteModel->alias.'.'.$remoteModel->primaryKey] = $entry[$MR->alias]['remote_id'];
 		}elseif(!empty($settings['mapFields']) && count(array_filter(array_intersect_key($entry[$Model->alias],array_flip((array)$settings['mapFields']))))){
 			foreach((array)$settings['mapFields'] as $field){
 				$remoteCond[$remoteModel->alias.'.'.$field] = $entry[$Model->alias][$field];
 			}
 		}
+		
 		if(!empty($remoteCond)){
 			$remoteEntry = $remoteModel->find('first',array('conditions'=>$remoteCond,'recursive'=>-1));
 		}
-		
-		$entry = $this->prepDataForMigration($Model, $entry, $targetInstance);
-		if(empty($entry)) return false;
-		
-		if(!empty($remoteEntry)){
-			$remoteSign = $this->getMigrationSign($Model, $remoteEntry, $targetInstance);
-			if($this->remoteEntryEquals($Model, $entry, $remoteEntry, $targetInstance)){
-				//both entries are equals, skip.
-				if($this->updateRemoteFiles($Model, $entry, $targetInstance)){
-					return $this->updateRemoteTracking($Model, $targetInstance, $entry, $remoteEntry[$remoteModel->alias][$remoteModel->primaryKey]);
-				}
-			}elseif(!empty($entry[$MR->alias]['sign']) && $entry[$MR->alias]['sign'] == $remoteSign){
-				//Remote entry was not modified since the last sync
-				return $this->updateRemoteEntry($Model, $entry, $remoteEntry, $targetInstance);
-			}elseif($this->getMigrationSign($Model, $entry) == $remoteSign){
-				//Some opreation has been made that prevent normal traking (modifying settings or adding the same entry in both instance's bd),
-				//but the entries seems compatible
-				return $this->updateRemoteEntry($Model, $entry, $remoteEntry, $targetInstance);
-			}else{
-				//Both local and remote entries are modified
-				return $this->resolveRemoteConflict($Model, $entry, $remoteEntry, $targetInstance);
-			}
-		}else{
-			//Remote entry does not exists
-			return $this->createRemoteEntry($Model, $entry, $targetInstance);
-		}
-		
-		return false;
+		return $remoteEntry;
 	}
 	
 	function resolveRemoteConflict($Model, $entry, $remoteEntry, $targetInstance){
 		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
 		debug('Cant resolve conflict');
 		return false;
-	}
-	
-	function remoteEntryEquals($Model, $entry, $remoteEntry, $targetInstance){
-		$settings = $this->settings[$Model->alias];
-		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
-		$exclude = array_merge(array($Model->primaryKey,'created','modified'),$settings['excludeFields']);
-		if(empty($entry['MigrationData'])) $entry = $this->prepDataForMigration($Model, $entry, $targetInstance);
-		$a = array_diff_key($entry['MigrationData'],array_flip($exclude));
-		$b = array_diff_key($remoteEntry[$remoteModel->alias],array_flip($exclude));
-		$a = array_intersect_key($a,$b);
-		$b = array_intersect_key($b,$a);
-		return !empty($a) && $a == $b;
-	}
-	
-	function updateRemoteEntry($Model, $entry, $remoteEntry, $targetInstance){
-		$settings = $this->settings[$Model->alias];
-		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
-		
-		$exclude = array();
-		if(!empty($settings['overridable'])){
-			$MR = $this->MigrationRemote;
-			$overrides = array();
-			if(!empty($entry[$MR->alias]['overridable'])) {
-				$overrides = unserialize($entry[$MR->alias]['overridable']);
-			}
-			foreach ((array)$settings['overridable'] as $field) {
-				if(!array_key_exists($field,$overrides) 
-						|| !array_key_exists($field,$remoteEntry[$remoteModel->alias]) 
-						|| $overrides[$field] != $remoteEntry[$remoteModel->alias][$field]
-				){
-					$exclude[] = $field;
-				}
-			}
-		}
-		
-		$data = array_diff($entry['MigrationData'],array_flip($exclude));
-		if(empty($data)) return false;
-
-		$data = array_merge($remoteEntry[$remoteModel->alias],$data);
-		
-		$dry = MigrationConfig::load('dryRun');
-		if($dry){
-			$saved = true;
-			debug('Save attempt on '.$remoteModel->alias);
-		}else{
-			$saved = $remoteModel->save($data);
-		}
-		if($saved){
-			if($this->updateRemoteFiles($Model, $entry, $targetInstance)){
-				return $this->updateRemoteTracking($Model, $targetInstance, $entry, $remoteEntry[$remoteModel->alias][$remoteModel->primaryKey]);
-			}
-		}
-		return false;
-	}
-	function createRemoteEntry($Model, $entry, $targetInstance){
-		$settings = $this->settings[$Model->alias];
-		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
-		
-		$data = $entry['MigrationData'];
-		if(empty($data)) return false;
-		
-		$remoteModel->create();
-		$dry = MigrationConfig::load('dryRun');
-		if($dry){
-			$saved = true;
-			debug('Save attempt on '.$remoteModel->alias);
-		}else{
-			$saved = $remoteModel->save($data);
-		}
-		if($saved){
-			if($this->updateRemoteFiles($Model, $entry, $targetInstance)){
-				return $this->updateRemoteTracking($Model, $targetInstance, $entry, $remoteModel->id);
-			}
-		}
-		return false;
-	}
-	
-	function prepDataForMigration($Model, $entry, $targetInstance, $exclude = array()){
-		$settings = $this->settings[$Model->alias];
-		$exclude = array_merge($exclude,array($Model->primaryKey),$settings['excludeFields']);
-		$fullName = $this->getFullName($Model);
-		
-		
-		$assoc = $this->getMigratedAssociations($Model);
-		if(!empty($assoc)){
-			foreach($assoc as $name => $opt){
-				$paths = array();
-				if(!empty($opt['path'])){
-					$paths = Migration::extractPath($entry[$Model->alias],$opt['path']);
-				}elseif(!empty($opt['foreignKey']) && array_key_exists($opt['foreignKey'],$entry[$Model->alias])){
-					$paths = array($opt['foreignKey']=>$entry[$Model->alias][$opt['foreignKey']]);
-				}
-				//debug($paths);
-				if(!empty($paths)){
-					$AssocModel = Migration::getLocalModel($opt['className']);
-					foreach($paths as $path => $local_id){
-						$removed = false;
-						$remote_id = $this->getRemoteId($AssocModel,$local_id,$targetInstance);
-						if(is_null($remote_id)){
-							if(isset($opt['unsetLevel'])){
-								$entry[$Model->alias] = Set::remove($entry[$Model->alias],implode('.',array_slice(explode('.',$path),0,$opt['unsetLevel'])));
-								$removed = true;
-							}
-							if(!empty($opt['autoTrack'])){
-								$entry['MigrationTracking'][$opt['className']][$local_id] = 1;
-							}
-							$entry['MigrationMissing'][] = array(
-								'model' => $opt['className'],
-								'local_id' => $local_id,
-							);
-						}
-						if(!$removed){
-							$entry[$Model->alias] = Set::insert($entry[$Model->alias],$path,$remote_id);
-						}
-					}
-				}
-			}
-			//debug($assoc);
-		}
-		//debug($entry[$Model->alias]);
-		
-		$raw = $this->getRawEntry($Model, $entry);
-		$data = $raw[$Model->alias];
-		$data = array_diff_key($data,array_flip($exclude));
-		
-		$entry['MigrationData'] = $data;
-		
-		return $entry;
 	}
 	
 	function getRemoteId($Model,$localEntry,$targetInstance){
@@ -364,7 +235,7 @@ class MigrationBehavior extends ModelBehavior {
 			return $remoteNode[$MR->alias]['remote_id'];
 		}
 		
-		$lastSync = $this->_getLastSync($Model,$targetInstance);
+		$lastSync = $this->getLastSync($Model,$targetInstance);
 		if(!empty($lastSync)){
 			if(is_numeric($localEntry)){
 				$localEntry = $Model->find('first',array('conditions'=>array($Model->alias.'.'.$Model->primaryKey=>$localEntry)));
@@ -446,85 +317,6 @@ class MigrationBehavior extends ModelBehavior {
 		return $ok;
 	}
 	
-	function updateRemoteTracking($Model, $instance, $entry, $remoteId = null){
-		$settings = $this->settings[$Model->alias];
-		$localId = $entry[$Model->alias][$Model->primaryKey];
-		$MR = $this->MigrationRemote;
-		$MR->id = null;
-		$fullName = $this->getFullName($Model);
-		$findOpt = array('conditions'=>array(
-			$MR->alias.'.model' => $fullName,
-			$MR->alias.'.instance' => $instance,
-			$MR->alias.'.local_id' => $localId,
-		));
-		$data = $MR->find('first',$findOpt);
-		$data[$MR->alias]['model'] = $fullName;
-		$data[$MR->alias]['instance'] = $instance;
-		$data[$MR->alias]['local_id'] = $localId;
-		if(!is_null($remoteId)) $data[$MR->alias]['remote_id'] = $remoteId;
-		$format = $MR->getDataSource()->columns['datetime']['format'];
-		$data[$MR->alias]['updated'] = date($format);
-		$data[$MR->alias]['sign'] = $this->getMigrationSign($Model,$entry);
-		$data[$MR->alias]['invalidated'] = 0;
-		
-		if(!empty($settings['overridable'])){
-			$raw = $this->getRawEntry($Model, $entry);
-			$overridable = array_intersect_key($raw[$Model->alias],array_flip((array)$settings['overridable']));
-			$data[$MR->alias]['overridable'] = serialize($overridable);
-		}else{
-			$data[$MR->alias]['overridable'] = null;
-		}
-		
-		if(!empty($remoteId)){
-			$this->checkMigrationMissing($Model,$localId,$instance);
-		}
-		
-		$dry = MigrationConfig::load('dryRun');
-		if($dry){
-			$saved = true;
-			debug('Save attempt on '.$MR->alias);
-		}else{
-			$saved = $MR->save($data);
-		}
-		if($saved){
-			if(!empty($entry['MigrationTracking'])){
-				Migration::updateAllTracking($entry['MigrationTracking']);
-			}
-			if(!empty($entry['MigrationMissing'])){
-				return $this->setMigrationMissing($Model,$entry['MigrationMissing'],$MR->id);
-			}
-			return true;
-		}else{
-			return false;
-		}
-	}
-	
-	function checkMigrationMissing($Model,$localId,$instance){
-		$fullName = $this->getFullName($Model);
-		$MR = $this->MigrationRemote;
-		$MMissing = $this->MigrationMissing;
-		$toInvalidate = $MMissing->find('list',array(
-			'fields'=>array(
-				$MMissing->alias.'.id',
-				$MMissing->alias.'.migration_remote_id'
-			),
-			'conditions'=>array(
-				$MR->alias.'.instance' => $instance,
-				$MMissing->alias.'.model' => $fullName,
-				$MMissing->alias.'.local_id' => $localId,
-			),
-			'recursive'=>0
-		));
-		if(!empty($toInvalidate)){
-			$dry = MigrationConfig::load('dryRun');
-			if($dry){
-				debug('Update attempt on '.$MR->alias);
-			}else{
-				$MR->updateAll(array('invalidated'=>1), array('id'=>array_values($toInvalidate)));
-			}
-		}
-	}
-	
 	function setMigrationMissing($Model,$data,$migration_remote_id){
 		if(!Set::numeric(array_keys($data))){
 			$data = array($data);
@@ -601,20 +393,6 @@ class MigrationBehavior extends ModelBehavior {
 		}
 	}
 	
-	function getMigrationSign($Model, $entry, $instance = false){
-		$alias = $Model->alias;
-		if(!$instance){
-			$data = $entry['MigrationData'];
-		}else{
-			$remoteModel = Migration::getRemoteModel($Model,$instance);
-			$alias = $remoteModel->alias;
-			$data = $entry[$alias];
-		}
-		$settings = $this->settings[$Model->alias];
-		$exclude = array_merge(array($Model->primaryKey,'created','modified'),$settings['excludeFields'],(array)$settings['overridable']);
-		$last_data = array_diff_key($data,array_flip($exclude));
-		return sha1(serialize($last_data));
-	}
 	
 }
 ?>
