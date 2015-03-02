@@ -185,6 +185,44 @@ class MigrationBehavior extends ModelBehavior {
 		return $count;
 	}
 	
+	function migrationDeletedCount($Model,$targetInstance=null){
+		$MR = $this->MigrationRemote;
+		$MN = $this->MigrationNode;
+		
+		$fullName = $this->getFullName($Model);
+		$deleted = $this->MigrationRemote->find('first',array(
+			'fields'=>array('COUNT(DISTINCT '.$Model->alias.'.'.$Model->primaryKey.') as count'),
+			'conditions'=> array(
+				$MR->alias.'.model' => $fullName,
+				$Model->alias.'.'.$Model->primaryKey => null
+			),
+			'joins' => array(
+				array(
+					'alias' => $Model->alias,
+					'table'=> $Model->useTable,
+					'type' => 'LEFT',
+					'conditions' => array(
+						$MR->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
+					)
+				),
+			)
+		));
+		
+		if($targetInstance){
+			$targets = [$targetInstance];
+		}else{
+			$targets = Migration::targetList();
+		}
+		foreach($targets as $instance => $name){
+			$lastSync = $this->getLastSync($Model,$instance);
+			$remoteModel = Migration::getRemoteModel($Model,$instance);
+			$existing = $remoteModel->find('all',array('conditions'=>array('created <= '=>$lastSync)));
+			debug($remoteModel);
+		}
+		
+		return $deleted[0]['count'];
+	}
+	
 	
 	function getRemoteEntry($Model, $entry, $targetInstance){
 		$remoteEntry = null;

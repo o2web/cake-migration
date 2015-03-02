@@ -15,6 +15,11 @@ class MigrationController extends MigrationAppController {
 			return;
 		}
 		
+		//$Model = Migration::getLocalModel('Slider');
+		//debug($Model->migrationDeletedCount());
+		// $Model = Migration::getLocalModel('Page');
+		// debug($Model->migrationDeletedCount());
+		
 		$posted = !empty($this->data);
 		if($posted){
 			foreach($this->data['Migration']['targets'] as $target => $active){
