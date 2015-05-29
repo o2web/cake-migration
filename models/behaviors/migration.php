@@ -185,43 +185,49 @@ class MigrationBehavior extends ModelBehavior {
 		return $count;
 	}
 	
-	function migrationDeletedCount($Model,$targetInstance=null){
-		$MR = $this->MigrationRemote;
-		$MN = $this->MigrationNode;
-		
-		$fullName = $this->getFullName($Model);
-		$deleted = $this->MigrationRemote->find('first',array(
-			'fields'=>array('COUNT(DISTINCT '.$Model->alias.'.'.$Model->primaryKey.') as count'),
-			'conditions'=> array(
-				$MR->alias.'.model' => $fullName,
-				$Model->alias.'.'.$Model->primaryKey => null
-			),
-			'joins' => array(
-				array(
-					'alias' => $Model->alias,
-					'table'=> $Model->useTable,
-					'type' => 'LEFT',
-					'conditions' => array(
-						$MR->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
-					)
-				),
-			)
-		));
-		
-		if($targetInstance){
-			$targets = [$targetInstance];
-		}else{
-			$targets = Migration::targetList();
-		}
-		foreach($targets as $instance => $name){
-			$lastSync = $this->getLastSync($Model,$instance);
-			$remoteModel = Migration::getRemoteModel($Model,$instance);
-			$existing = $remoteModel->find('all',array('conditions'=>array('created <= '=>$lastSync)));
-			debug($remoteModel);
-		}
-		
-		return $deleted[0]['count'];
-	}
+  function migrationDeletedCount($Model,$targetInstance=null){
+    return count($this->migrationDeletedIds($Model,$targetInstance));
+  }
+  function migrationDeletedIds($Model,$targetInstance=null){
+    $MR = $this->MigrationRemote;
+    $MN = $this->MigrationNode;
+    
+    $fullName = $this->getFullName($Model);
+    $deletedIds = $this->MigrationRemote->find('list',array(
+      'fields'=>array($Model->alias.'.'.$Model->primaryKey, $Model->alias.'.'.$Model->primaryKey),
+      'conditions'=> array(
+        $MR->alias.'.model' => $fullName,
+        $Model->alias.'.'.$Model->primaryKey => null
+      ),
+      'joins' => array(
+        array(
+          'alias' => $Model->alias,
+          'table'=> $Model->useTable,
+          'type' => 'LEFT',
+          'conditions' => array(
+            $MR->alias.'.local_id = '.$Model->alias.'.'.$Model->primaryKey,
+          )
+        ),
+      )
+    ));
+    
+    
+    if($targetInstance){
+      $targets = [$targetInstance];
+    }else{
+      $targets = Migration::targetList();
+    }
+    $format = $Model->getDataSource()->columns['datetime']['format'];
+    foreach($targets as $instance => $name){
+      $lastSync = $this->getLastSync($Model,$instance);
+      $existingLocal = $Model->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync))));
+      $remoteModel = Migration::getRemoteModel($Model,$instance);
+      $deletedIds = array_merge($deletedIds,$remoteModel->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync),'not'=>array($Model->primaryKey=>$existingLocal)))));
+      // debug($remoteOnly);
+    }
+    
+    return $deletedIds;
+  }
 	
 	
 	function getRemoteEntry($Model, $entry, $targetInstance){
