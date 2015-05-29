@@ -9,10 +9,10 @@ class MigratedComponent extends Object {
 		
 	}
 	
-	function &getModelOpt($alias){
+	function &getModelOpt($alias,$key=null){
 		if(!empty($this->modelsOpt[$alias])){
-			return $this->modelsOpt[$alias];
-		}
+			$opt =$this->modelsOpt[$alias];
+		}else{
 		$opt = $this->Session->read('Migration.migrated.'.$alias);
 		if(empty($opt)){
 			$opt = array(
@@ -21,7 +21,12 @@ class MigratedComponent extends Object {
 			);
 		}
 		$this->modelsOpt[$alias] = &$opt;
+    }
+    if(is_null($key)){
 		return $opt;
+    }else{
+      return $opt[$key];
+    }
 	}
 	
 	function clear(){
@@ -36,7 +41,7 @@ class MigratedComponent extends Object {
 	}
 	
 	function getMode($alias){
-		return $this->getModelOpt($alias)['mode'];
+		return $this->getModelOpt($alias,'mode');
 	}
 	function setMode($alias,$val){
 		if(!in_array($val,$this->modes)) $val = $this->modes[$val?1:0];
@@ -45,7 +50,7 @@ class MigratedComponent extends Object {
 		$this->saveModelOpt($alias);
 	}
 	function isIncludeMode($alias){
-		return $this->getModelOpt($alias)['mode'] != 'exclude';
+		return $this->getModelOpt($alias,'mode') != 'exclude';
 	}
 	function updateStates($alias,$assoc){
 		foreach ($assoc as $id => $val) {
@@ -63,7 +68,7 @@ class MigratedComponent extends Object {
 				$opt['execeptions'][] = $id;
 			}
 		}else{
-			$opt['execeptions'] = array_diff($opt['execeptions'], [$id]);
+			$opt['execeptions'] = array_diff($opt['execeptions'], array($id));
 		}
 		if($save) $this->saveModelOpt($alias);
 	}
