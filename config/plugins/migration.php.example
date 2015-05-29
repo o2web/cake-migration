@@ -1,7 +1,20 @@
 <?php
-	Configure::write('Migration.instance_name', 'Master');
-	Configure::write('Migration.target_instances', array(
-		'Defi2' => array(
-			'database' => 'defi2',
-		)
-	));
+  Configure::write('Migration.instance_name', 'Master');
+  Configure::write('Migration.target_instances', array(
+    'somehost.com' => array(
+      'host' => 'somehost.com',
+      'login' => 'user',
+      'password' => 'password',
+      'database' => 'database_name',
+    )
+    // // Transfer file via ftp
+    // 'ftp'=>array(
+      // 'host' => 'somehost.com',
+      // 'username' => 'user',
+      // 'password' => 'password',
+      // 'basepath' => 'app/webroot/files', //The ftp home folder relative to the project root
+    // )
+    
+    // // Transfer file to a local folder
+    // 'path' => 'C:\path\to\project\app'
+  ));
