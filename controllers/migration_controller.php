@@ -42,9 +42,10 @@ class MigrationController extends MigrationAppController {
 			}
 		}
 		
-		$models = Set::normalize(Migration::migratingModels());
+		$modelsNames = Migration::migratingModels();
+    $models = array();
 		$pendings = Migration::pendingList();
-		foreach($models as $mname => &$m){
+		foreach($modelsNames as $mname){
 			$m = array(
 				'class' => Migration::classNameParts($mname,'class'),
 				'name' => str_replace('.','-',$mname),
@@ -56,6 +57,7 @@ class MigrationController extends MigrationAppController {
 				$m['migrated_count'] = $this->Migrated->alterCount($mname,$pendings[$mname]);
 				if(!$posted) $this->data['Migration']['models'][$m['name']] = 1;
 			}
+      $models[] = $m;
 		}
 		
 		if(!$posted){
