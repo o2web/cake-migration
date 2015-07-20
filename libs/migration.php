@@ -28,13 +28,12 @@ class Migration extends Object {
 		if(empty($migrated)){
 			App::import('Lib', 'Migration.MigrationConfig');
 			$preset = MigrationConfig::load('preset');
-			$exclude = MigrationConfig::load('exclude');
 			$full = MigrationConfig::load('full');
 			
 			$models = Migration::modelList();
 			$migrated = array_values(array_intersect($models,array_keys($preset)));
 			foreach(array_diff($models,$migrated) as $mname){
-				if(!in_array($mname,$exclude) && Migration::testModelIntegrity($mname)){
+				if(!Migration::modelIsExcluded($mname) && Migration::testModelIntegrity($mname)){
 					$Model = ClassRegistry::init($mname);
 					if($Model->hasField('modified') && ($full || $Model->Behaviors->attached('Migration'))){
 						$p = explode('.',$mname);
@@ -48,6 +47,15 @@ class Migration extends Object {
 		
 		return $migrated;
 	}
+  
+  function modelIsExcluded($modelName){
+		$exclude = MigrationConfig::load('exclude');
+    foreach($exclude as $ex){
+      if($ex == $modelName) return true;
+      if(strpos($ex,'*') !== false && preg_match('/^'.str_replace('\*','.*',preg_quote($ex)).'$/i',$modelName)) return true;
+    }
+    return false;
+  }
 	
 	function clearCache(){
 		Cache::delete('migrating_models');
