@@ -186,7 +186,11 @@ class MigrationBehavior extends ModelBehavior {
 	}
 	
   function migrationDeletedCount($Model,$targetInstance=null){
-    return count($this->migrationDeletedIds($Model,$targetInstance));
+    $deletedIds = array();
+    foreach($this->migrationDeletedIds($Model,$targetInstance) as $instance => $ids){
+      $deletedIds = array_merge($deletedIds,$ids);
+    }
+    return count($deletedIds);
   }
   function migrationDeletedIds($Model,$targetInstance=null){
     $MR = $this->MigrationRemote;
@@ -194,7 +198,7 @@ class MigrationBehavior extends ModelBehavior {
     
     $fullName = $this->getFullName($Model);
     $deletedIds = $this->MigrationRemote->find('list',array(
-      'fields'=>array($Model->alias.'.'.$Model->primaryKey, $Model->alias.'.'.$Model->primaryKey),
+      'fields'=>array($MR->alias.'.local_id', $MR->alias.'.local_id', $MR->alias.'.instance'),
       'conditions'=> array(
         $MR->alias.'.model' => $fullName,
         $Model->alias.'.'.$Model->primaryKey => null
@@ -213,7 +217,7 @@ class MigrationBehavior extends ModelBehavior {
     
     
     if($targetInstance){
-      $targets = [$targetInstance];
+      $targets = array($targetInstance=>$targetInstance);
     }else{
       $targets = Migration::targetList();
     }
@@ -222,7 +226,7 @@ class MigrationBehavior extends ModelBehavior {
       $lastSync = $this->getLastSync($Model,$instance);
       $existingLocal = $Model->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync))));
       $remoteModel = Migration::getRemoteModel($Model,$instance);
-      $deletedIds = array_merge($deletedIds,$remoteModel->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync),'not'=>array($Model->primaryKey=>$existingLocal)))));
+      $deletedIds[$instance] = array_merge((array)$deletedIds[$instance],$remoteModel->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync),'not'=>array($Model->primaryKey=>$existingLocal)))));
       // debug($remoteOnly);
     }
     

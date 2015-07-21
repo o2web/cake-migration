@@ -50,10 +50,12 @@ class MigrationNodesController extends MigrationAppController {
 		$Model = Migration::getLocalModel($modelName);
 		$this->loadModel($modelName);
 		
-		$this->paginate = array_merge($this->paginate,$Model->migrationPendingPaginateOpts());
+		$this->paginate[$Model->alias] = array_merge(empty($this->paginate[$Model->alias])?array():$this->paginate[$Model->alias],$Model->migrationPendingPaginateOpts());
 		
 		$fields = $Model->migrationListFields();
 		
+		$this->paginate[$Model->alias]['fields'] = array_keys($fields);
+    
 		$q = null;
 		if(isset($this->params['named']['q']) && strlen(trim($this->params['named']['q'])) > 0) {
 			$q = $this->params['named']['q'];
@@ -63,10 +65,10 @@ class MigrationNodesController extends MigrationAppController {
 		}
 		if($q !== null) {
 			$this->passedArgs['q'] = $q;
-			$this->paginate['conditions'] = $Model->migrationFindCond($q);
+			$this->paginate[$Model->alias]['conditions'] = $Model->migrationFindCond($q);
 		}
 		
-		$entries = $this->paginate($Model->name);
+		$entries = $this->paginate($Model);
 		if( !empty($this->data['MigrationNode']['migrated']) ) {
 			$this->Migrated->setMode($Model->alias,$this->data['MigrationNode']['includeMode']);
 			$this->Migrated->updateStates($Model->alias,$this->data['MigrationNode']['migrated']);
@@ -76,6 +78,23 @@ class MigrationNodesController extends MigrationAppController {
 			$this->data['MigrationNode']['migrated'] = $this->Migrated->getEntriesStates($Model,$entries);
 		}
 		
+    $deletedIds = $Model->migrationDeletedIds();
+    if(!empty($deletedIds)){
+      $deleted = array();
+      foreach($deletedIds as $instance => $ids){
+        $remoteModel = Migration::getRemoteModel($Model,$instance);
+        // debug($Model->migrationPendingPaginateOpts());
+        
+        $this->paginate[$remoteModel->alias]['fields'] = array_keys($fields);
+        $this->paginate[$remoteModel->alias]['conditions'][$remoteModel->primaryKey] = $ids;
+        $deleted[$instance] = $this->paginate($remoteModel);
+      }
+      $this->set('deleted', $deleted);
+      $targets = Migration::targetList();
+      $this->set('targets', $targets);
+    }
+    
+    
 		$this->set('modelAlias', $Model->alias);
 		$this->set('modelPrimary', $Model->primaryKey);
 		$this->set('fields', $fields);
