@@ -49,7 +49,42 @@
 					</tr>
 				<?php
 			}
+      debug($deleted);
 		?>
+    <?php if(!empty($deleted)){ ?>
+      <tr>
+        <?php foreach($deleted as $instance => $deletedEntries){ ?>
+          <th colspan="<?php echo count($fields) + 2; ?>"><?php echo str_replace('%instance%',$targets[$instance],__('To delete in %instance%',true)); ?></th>
+        <?php } ?>
+        <?php
+        $i = 0;
+        foreach ($deletedEntries as $migrationNode) {
+          $class = null;
+          if ($i++ % 2 == 0) {
+            $class = ' class="altrow"';
+          }
+          ?>
+            <tr<?php echo $class;?>>
+              <?php $j=0; ?>
+              <?php foreach ($fields as $fieldName=>$field) { ?>
+              <td class="<?php echo $fieldName.($j==0?' firstCol':'') ?>"><?php echo $migrationNode[$modelAlias][$fieldName]; ?>&nbsp;</td>
+              <?php $j++; ?>
+              <?php } ?>
+              <td class="migrated">
+              <?php
+                echo $this->Form->input('MigrationNode.migrated.'.$migrationNode[$modelAlias][$modelPrimary],array('type'=>'checkbox','label'=>false));
+              ?>
+              </td>
+              <td class="actions">
+                <?php echo $this->Html->link(__('Diff', true), array('plugin' => 'migration','action' => 'diff', $modelAlias,$migrationNode[$modelAlias][$modelPrimary]), array('class' => 'diff')); ?>
+                <?php //echo $this->Html->link(__('Delete', true), array('action' => 'delete', $migrationNode['MigrationNode']['id']), array('class' => 'delete'), sprintf(__('Are you sure you want to delete # %s?', true), $migrationNode['MigrationNode']['id'])); ?>
+              </td>
+            </tr>
+          <?php
+        }
+        ?>
+      </tr>
+    <?php } ?>
 		<tr>
 			<th class="invisible" colspan="<?php echo count($fields); ?>">&nbsp;</th>
 			<th class="migrated">
