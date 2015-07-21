@@ -4,8 +4,12 @@ Pour cakePHP 1.3
 
 ## Installation
 
-* Placer le dossier "migration" dans "app/plugins/".</li>
-* Exécuter les commandes SQL de "database.sql" dans la base de donnée MySql.</li>
+* Placer le dossier "migration" dans "app/plugins/".
+* Exécuter les commandes SQL de "database.sql" dans la base de donnée MySql.
+* Run the following to generate the config file :
+  ```sh
+  php cake/console/cake.php install_migration
+  ```
 
 ## todo
 
