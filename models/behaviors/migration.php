@@ -182,7 +182,7 @@ class MigrationBehavior extends ModelBehavior {
 		));
 		
 		$count = $Model->find('first',$findOpt);
-		return $count;
+		return $count[0]['count'];
 	}
 	
   function migrationDeletedCount($Model,$targetInstance=null){

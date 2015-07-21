@@ -4,6 +4,8 @@
 		var $batches = array();
 		var $autoSelect = array();
 		var $invalidated = array();
+    var $models = array();
+    
 		function __construct ($targetInstance){
 			App::import('Lib', 'Migration.Migration');
 			App::import('Lib', 'Migration.MigrationBatch');
@@ -15,6 +17,14 @@
 			$this->msgs[] = $msg;
 		}
 		
+    function run(){
+      debug($this->models);
+      foreach($this->models as $modelName => $opt){
+        $this->processBatch($modelName,$opt);
+      }
+      $this->autoSolve();
+    }
+    
 		function processBatch($modelName,$options = array()){
 			$Model = Migration::getLocalModel($modelName);
 			$this->batches[] = $batch = new MigrationBatch($this,$Model,$options);

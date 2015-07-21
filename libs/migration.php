@@ -67,8 +67,7 @@ class Migration extends Object {
 		$list = array();
 		foreach($models as $mname){
 			$Model = Migration::getLocalModel($mname);
-			$count = $Model->migrationPendingCount();
-			$list[$mname] = $count[0]['count'];
+			$list[$mname] = $Model->migrationPendingCount() + $Model->migrationDeletedCount();
 		}
 		return $list;
 	}

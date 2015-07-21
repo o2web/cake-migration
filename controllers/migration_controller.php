@@ -28,10 +28,10 @@ class MigrationController extends MigrationAppController {
 					foreach($this->data['Migration']['models'] as $modelName => $active){
 						if($active){
 							$modelName = str_replace('-','.',$modelName);
-							$process->processBatch($modelName,$this->Migrated->findOpt($modelName));
+              $process->models[$modelName] = $this->Migrated->findOpt($modelName);
 						}
 					}
-					$process->autoSolve();
+					$process->run();
 					
 					$this->Session->setFlash(implode("<br>\n",$process->msgs));
 				}
