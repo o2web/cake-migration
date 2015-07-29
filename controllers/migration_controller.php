@@ -28,9 +28,11 @@ class MigrationController extends MigrationAppController {
 					foreach($this->data['Migration']['models'] as $modelName => $active){
 						if($active){
 							$modelName = str_replace('-','.',$modelName);
-              $process->models[$modelName] = $this->Migrated->findOpt($modelName);
+              //$process->models[$modelName] = $this->Migrated->findOpt($modelName);
+              $process->setModelOpt($modelName,$this->Migrated->getModelOpt($modelName));
 						}
 					}
+          // debug($process->models);
 					$process->run();
 					
 					$this->Session->setFlash(implode("<br>\n",$process->msgs));
@@ -55,16 +57,19 @@ class MigrationController extends MigrationAppController {
 				'class' => Migration::classNameParts($mname,'class'),
 				'name' => str_replace('.','-',$mname),
 				'count' => 0,
+				'deleted_count' => 0,
+				'migrated_count' => 0,
 				'param' => Migration::modelNameToUrl($mname),
 			);
 			if(!empty($pendings[$mname])){
-				$m['count'] = $pendings[$mname];
-				$m['migrated_count'] = $this->Migrated->alterCount($mname,$pendings[$mname]);
+				$m['count'] = array_sum($pendings[$mname]);
+				$m['deleted_count'] = empty($pendings[$mname]['delete'])?0:$pendings[$mname]['delete'];
+				$m['migrated_count'] = $this->Migrated->alterCount($mname,$m['count']);
 				if(!$posted) $this->data['Migration']['models'][$m['name']] = 1;
 			}
       $models[] = $m;
 		}
-		
+		// debug($models);
 		if(!$posted){
 			foreach($targets as $key => $label){
 				$this->data['Migration']['targets'][$key] = 1;

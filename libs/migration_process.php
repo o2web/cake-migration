@@ -10,6 +10,7 @@
 			App::import('Lib', 'Migration.Migration');
 			App::import('Lib', 'Migration.MigrationBatch');
 			$this->targetInstance = $targetInstance;
+      Migration::currentProcess($this);
 		}
 		
 		var $msgs = array();
@@ -17,8 +18,15 @@
 			$this->msgs[] = $msg;
 		}
 		
+    function setModelOpt($modelName,$opt){
+      if(!empty($opt['instances'][$this->targetInstance])){
+        $opt['instance'] = $opt['instances'][$this->targetInstance];
+      }
+      $this->models[$modelName] = $opt;
+    }
+    
     function run(){
-      debug($this->models);
+      // debug($this->models);
       foreach($this->models as $modelName => $opt){
         $this->processBatch($modelName,$opt);
       }
@@ -29,6 +37,7 @@
 			$Model = Migration::getLocalModel($modelName);
 			$this->batches[] = $batch = new MigrationBatch($this,$Model,$options);
 			$batch->process();
+      $batch->processDeletions();
 			return $batch;
 		}
 		

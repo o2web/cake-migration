@@ -24,7 +24,7 @@ class MigrationBehavior extends ModelBehavior {
 	}
 	
 	function msg($msg){
-		debug($msg);
+		Migration::msg($msg);
 	}
 	
 	function setPluginName($Model,$plugin){
@@ -226,8 +226,14 @@ class MigrationBehavior extends ModelBehavior {
       $lastSync = $this->getLastSync($Model,$instance);
       $existingLocal = $Model->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync))));
       $remoteModel = Migration::getRemoteModel($Model,$instance);
-      $deletedIds[$instance] = array_merge((array)$deletedIds[$instance],$remoteModel->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync),'not'=>array($Model->primaryKey=>$existingLocal)))));
+      $ids = $remoteModel->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync),'not'=>array($Model->primaryKey=>$existingLocal))));
+      if(!empty($ids)){
+        $deletedIds[$instance] = array_merge( empty($deletedIds[$instance])?array():$deletedIds[$instance], $ids);
+      }
       // debug($remoteOnly);
+    }
+    if(!empty($targetInstance) && !is_array($targetInstance)){
+      $deletedIds = empty($deletedIds[$targetInstance])?array():$deletedIds[$targetInstance];
     }
     
     return $deletedIds;

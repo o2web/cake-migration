@@ -1,24 +1,10 @@
 <?php
 	$this->Html->css('/migration/css/admin',null,array('inline'=>false));
-	$this->Html->scriptBlock('
-		(function( $ ) {
-			function updateSelected(){
-				if(window.console){
-					console.log($(".input.checkbox input:not(:checked)").parent());
-				}
-				$(".input.checkbox input").parent().removeClass("selected");
-				$(".input.checkbox input:checked").parent().addClass("selected");
-			}
-			$(function(){
-				updateSelected();
-				$(".input.checkbox input").change(updateSelected);
-			})
-		})( jQuery );
-	',array('inline'=>false));
+  $this->Html->script('/migration/js/list_models.js',array('inline'=>false));
 ?>
 <div class="migration index">
 	<?php
-		echo $this->Form->create('Migration',array('url'=>array('controller'=>'migration')));
+		echo $this->Form->create('Migration',array('url'=>array('controller'=>'migration'),'deletion_confim'=>__("Some of the pendings modifications are Deletions. Those Deletions can't be undone. Do you want to continue ?",true)));
 		?>
 			<fieldset class="modelList checkboxList"><legend><?php __('Models'); ?></legend>
 		<?php
@@ -39,7 +25,10 @@
 					'type'=>'checkbox',
 					'label'=>__(Inflector::humanize(Inflector::underscore($model['class'])),true).' ('.sprintf(__('%s Pendings', true), $count).')',
 					'options'=>false,
-					'after'=>$after
+					'after'=>$after,
+          'div'=>array(
+            'deleted_count' => $model['deleted_count']
+          )
 				));
 			}
 			ksort($inputs);

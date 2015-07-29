@@ -51,6 +51,8 @@ class MigrationNodesController extends MigrationAppController {
 		$this->loadModel($modelName);
 		
 		$this->paginate[$Model->alias] = array_merge(empty($this->paginate[$Model->alias])?array():$this->paginate[$Model->alias],$Model->migrationPendingPaginateOpts());
+    
+    // $this->paginate[$Model->alias]['limit'] = 1;
 		
 		$fields = $Model->migrationListFields();
 		
@@ -71,11 +73,11 @@ class MigrationNodesController extends MigrationAppController {
 		$entries = $this->paginate($Model);
 		if( !empty($this->data['MigrationNode']['migrated']) ) {
 			$this->Migrated->setMode($Model->alias,$this->data['MigrationNode']['includeMode']);
-			$this->Migrated->updateStates($Model->alias,$this->data['MigrationNode']['migrated']);
-			$this->redirect(array('plugin'=>'migration','controller'=>'migration','action' => 'index'));
+			$this->Migrated->updateStates($Model->alias,$this->data['MigrationNode']['migrated'][$Model->alias]);
+      $redirect = array('plugin'=>'migration','controller'=>'migration','action' => 'index');
 		}else{
 			$this->data['MigrationNode']['includeMode'] = $this->Migrated->isIncludeMode($Model->alias);
-			$this->data['MigrationNode']['migrated'] = $this->Migrated->getEntriesStates($Model,$entries);
+			$this->data['MigrationNode']['migrated'][$Model->alias] = $this->Migrated->getEntriesStates($Model,$entries);
 		}
 		
     $deletedIds = $Model->migrationDeletedIds();
@@ -87,8 +89,26 @@ class MigrationNodesController extends MigrationAppController {
         
         $this->paginate[$remoteModel->alias]['fields'] = array_keys($fields);
         $this->paginate[$remoteModel->alias]['conditions'][$remoteModel->primaryKey] = $ids;
+        
+        
+        // $this->paginate[$remoteModel->alias]['limit'] = 1;
+    
         $deleted[$instance] = $this->paginate($remoteModel);
+        
+        
+        if( !empty($this->data['MigrationNode']['migrated'][$remoteModel->alias]) ) {
+          $this->Migrated->updateStates($Model->alias,$this->data['MigrationNode']['migrated'][$remoteModel->alias],$instance);
+        }else{
+          $this->data['MigrationNode']['migrated'][$remoteModel->alias] = $this->Migrated->getEntriesStates($Model,$deleted[$instance],$instance);
+        }
       }
+      
+      if(!empty($redirect)){
+        // debug($this->Migrated->modelsOpt);
+        $this->redirect($redirect);
+      }
+      
+      $this->set('deletedModelAlias', $remoteModel->alias);
       $this->set('deleted', $deleted);
       $targets = Migration::targetList();
       $this->set('targets', $targets);
@@ -125,6 +145,16 @@ class MigrationNodesController extends MigrationAppController {
 		$this->set('targets', $targets);
 	}
 
+	function admin_deleted($instance,$modelName,$id) {
+		App::import('Lib', 'Migration.Migration');
+    $Model = Migration::getLocalModel($modelName);
+    $remoteModel = Migration::getRemoteModel($Model,$instance);
+    $remote = $remoteModel->find($id);
+		$this->set('localModelAlias', $modelName); 
+		$this->set('modelAlias', $remoteModel->alias);
+		$this->set('remote', $remote);
+  }
+  
 	function admin_edit($id = null) {
 		if (!$id && empty($this->data)) {
 			$this->Session->setFlash(sprintf(__('Invalid %s', true), 'migration node'));

@@ -11,23 +11,39 @@ class MigratedComponent extends Object {
 	
 	function &getModelOpt($alias,$key=null){
 		if(!empty($this->modelsOpt[$alias])){
-			$opt =$this->modelsOpt[$alias];
+			$opt = &$this->modelsOpt[$alias];
 		}else{
-		$opt = $this->Session->read('Migration.migrated.'.$alias);
-		if(empty($opt)){
-			$opt = array(
-				'mode'=>'exclude',
-				'execeptions'=>array()
-			);
-		}
-		$this->modelsOpt[$alias] = &$opt;
+      $opt = $this->Session->read('Migration.migrated.'.$alias);
+      if(empty($opt)){
+        $opt = array(
+          'mode'=>'exclude',
+          'execeptions'=>array(),
+          'instances'=>array()
+        );
+      }
+      $this->modelsOpt[$alias] = &$opt;
     }
     if(is_null($key)){
-		return $opt;
+      return $opt;
     }else{
       return $opt[$key];
     }
 	}
+  
+	function &getModelInstanceOpt($alias,$instance,$key=null){
+    $opt = &$this->getModelOpt($alias);
+    if(empty($opt['instances'][$instance])){
+      $opt['instances'][$instance] = array(
+				'execeptions'=>array(),
+			);
+    }
+    if(is_null($key)){
+      return $opt['instances'][$instance];
+    }else{
+      return $opt['instances'][$instance][$key];
+    }
+  }
+  
 	
 	function clear(){
 		$this->modelsOpt = array();
@@ -52,16 +68,20 @@ class MigratedComponent extends Object {
 	function isIncludeMode($alias){
 		return $this->getModelOpt($alias,'mode') != 'exclude';
 	}
-	function updateStates($alias,$assoc){
+	function updateStates($alias,$assoc, $instance = null){
 		foreach ($assoc as $id => $val) {
-			$this->updateState($alias,$assoc,$id,$val,false);
+			$this->updateState($alias,$assoc,$id,$val,false, $instance);
 		}
 		$this->saveModelOpt($alias);
 	}
 	
-	function updateState($alias,$assoc,$id,$val,$save = true){
-		$opt = &$this->getModelOpt($alias);
-		if(($opt['mode'] == 'exclude') == !$val){ 
+	function updateState($alias,$assoc,$id,$val,$save = true, $instance = null){
+    if($instance){
+      $opt = &$this->getModelInstanceOpt($alias,$instance);
+    }else{
+      $opt = &$this->getModelOpt($alias);
+    }
+		if(($this->getModelOpt($alias,'mode') == 'exclude') == !$val){ 
 			// is an exception
 			$key = array_search($id, $opt['execeptions']);
 			if($key === false){
@@ -73,19 +93,29 @@ class MigratedComponent extends Object {
 		if($save) $this->saveModelOpt($alias);
 	}
 	
-	function getEntriesStates($Model,$entries){
+	function getEntriesStates($Model,$entries, $instance = null){
 		$ids = array();
+    if(empty($instance)){
+      $alias = $Model->alias;
+    }else{
+      $remoteModel = Migration::getRemoteModel($Model,$instance);
+      $alias = $remoteModel->alias;
+    }
 		foreach ($entries as $entry) {
-			$ids[] = $entry[$Model->alias][$Model->primaryKey];
+			$ids[] = $entry[$alias][$Model->primaryKey];
 		}
 		return $this->getIdsStates($Model->alias,$ids);
 	}
-	function getIdsStates($alias,$ids){
+	function getIdsStates($alias,$ids, $instance = null){
 		$data = array();
-		$opt = &$this->getModelOpt($alias);
+    if($instance){
+      $opt = &$this->getModelInstanceOpt($alias,$instance);
+    }else{
+      $opt = &$this->getModelOpt($alias);
+    }
 		foreach ($ids as $id) {
 			$key = array_search($id, $opt['execeptions']);
-			$data[$id] = ($opt['mode'] == 'exclude') == ($key === false);
+			$data[$id] = ($this->getModelOpt($alias,'mode') == 'exclude') == ($key === false);
 		}
 		return $data;
 	}
@@ -94,34 +124,21 @@ class MigratedComponent extends Object {
 		if(!$count) return $count;
 		$opt = &$this->getModelOpt($alias);
 		if($opt['mode'] == 'exclude'){
-			return $count - count($opt['execeptions']);
+			return $count - count($opt['execeptions']) - $this->countInstancesExeceptions($alias);
 		}else{
-			return count($opt['execeptions']);
+			return count($opt['execeptions']) + $this->countInstancesExeceptions($alias);
 		}
 	}
+  
+  function countInstancesExeceptions($alias){
+		$opt = &$this->getModelOpt($alias);
+    $count = 0;
+    if(!empty($opt['instances'])){
+      foreach($opt['instances'] as $instOpt){
+        $count += count($instOpt['execeptions']);
+      }
+    }
+    return $count;
+  }
 	
-	function getCond($Model){
-		if(is_string($Model)){
-			App::import('Lib', 'Migration.Migration');
-			$Model = Migration::getLocalModel($Model);
-		}
-		$opt = &$this->getModelOpt($Model->alias);
-		if(empty($opt['execeptions'])){
-			return array();
-		}
-		$key = '`'.$Model->alias.'`.`'.$Model->primaryKey.'`';
-		if($opt['mode'] == 'exclude'){
-			return array('not'=>array($key=>$opt['execeptions']));
-		}else{
-			return array($key=>$opt['execeptions']);
-		}
-	}
-	function findOpt($Model){
-		$cond = $this->getCond($Model);
-		if(!empty($cond)){
-			return array('conditions'=>$cond);
-		}else{
-			return array();
-		}
-	}
 }

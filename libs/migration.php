@@ -18,8 +18,20 @@ class Migration extends Object {
 		return array_values(array_diff($models,$exclude));
 	}
 	
+  function currentProcess($val = null){
+    static $currentProcess = null;
+    if(!is_null($val)){
+      $currentProcess = $val;
+    }
+    return $currentProcess;
+  }
+  
 	function msg($msg){
-		debug($msg);
+    if(Migration::currentProcess()){
+      Migration::currentProcess()->msg($msg);
+    }else{
+      debug($msg);
+    }
 	}
 	
 	function migratingModels(){
@@ -67,7 +79,16 @@ class Migration extends Object {
 		$list = array();
 		foreach($models as $mname){
 			$Model = Migration::getLocalModel($mname);
-			$list[$mname] = $Model->migrationPendingCount() + $Model->migrationDeletedCount();
+      
+      $up = $Model->migrationPendingCount();
+      if(!empty($up)){
+        $list[$mname]['update'] = $up;
+      }
+      
+      $del = $Model->migrationDeletedCount();
+      if(!empty($del)){
+        $list[$mname]['delete'] = $del;
+      }
 		}
 		return $list;
 	}
