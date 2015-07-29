@@ -149,7 +149,7 @@ class MigrationNodesController extends MigrationAppController {
 		App::import('Lib', 'Migration.Migration');
     $Model = Migration::getLocalModel($modelName);
     $remoteModel = Migration::getRemoteModel($Model,$instance);
-    $remote = $remoteModel->find($id);
+    $remote = $remoteModel->read(null,$id);
 		$this->set('localModelAlias', $modelName); 
 		$this->set('modelAlias', $remoteModel->alias);
 		$this->set('remote', $remote);

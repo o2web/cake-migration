@@ -78,7 +78,9 @@
         if($dry){
           $this->msg('Delete attempt on '.$remoteModel->alias.' for Ids : '.implode(', ',$ids));
         }else{
-          $remoteModel->deleteAll(array($remoteModel->alias.'.'.$remoteModel->primaryKey => $ids));
+          if($remoteModel->deleteAll(array($remoteModel->alias.'.'.$remoteModel->primaryKey => $ids))){
+            $this->msg(str_replace('%nb%',count($ids),__('%nb% entries deleted on the remote server',true)));
+          }
         }
       }
     }
