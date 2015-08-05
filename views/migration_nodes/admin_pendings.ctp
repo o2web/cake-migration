@@ -44,7 +44,7 @@
 						?>
 						</td>
 						<td class="actions">
-							<?php echo $this->Html->link(__('Diff', true), array('plugin' => 'migration','action' => 'diff', $modelAlias,$migrationNode[$modelAlias][$modelPrimary]), array('class' => 'diff')); ?>
+							<?php echo $this->Html->link(__('Diff', true), array('plugin' => 'migration','action' => 'diff', $modelUrlAlias,$migrationNode[$modelAlias][$modelPrimary]), array('class' => 'diff')); ?>
 							<?php //echo $this->Html->link(__('Delete', true), array('action' => 'delete', $migrationNode['MigrationNode']['id']), array('class' => 'delete'), sprintf(__('Are you sure you want to delete # %s?', true), $migrationNode['MigrationNode']['id'])); ?>
 						</td>
 					</tr>
@@ -96,7 +96,7 @@
               ?>
               </td>
               <td class="actions">
-                <?php echo $this->Html->link(__('View', true), array('plugin' => 'migration','action' => 'deleted', $instance, $modelAlias,$migrationNode[$deletedModelAlias][$modelPrimary]), array('class' => 'view')); ?>
+                <?php echo $this->Html->link(__('View', true), array('plugin' => 'migration','action' => 'deleted', $instance, $modelUrlAlias,$migrationNode[$deletedModelAlias][$modelPrimary]), array('class' => 'view')); ?>
                 <?php //echo $this->Html->link(__('Delete', true), array('action' => 'delete', $migrationNode['MigrationNode']['id']), array('class' => 'delete'), sprintf(__('Are you sure you want to delete # %s?', true), $migrationNode['MigrationNode']['id'])); ?>
               </td>
             </tr>

@@ -39,6 +39,7 @@ class MigrationNodesController extends MigrationAppController {
 
 		$Model->recursive = 0;
 		$this->set('modelAlias', $Model->alias);
+		$this->set('modelUrlAlias', $Model->getUrlName());
 		$this->set('modelPrimary', $Model->primaryKey);
 		$this->set('fields', $fields);
 		$this->set('migrationNodes', $entries);
@@ -116,6 +117,7 @@ class MigrationNodesController extends MigrationAppController {
     
     
 		$this->set('modelAlias', $Model->alias);
+		$this->set('modelUrlAlias', $Model->getUrlName());
 		$this->set('modelPrimary', $Model->primaryKey);
 		$this->set('fields', $fields);
 		$this->set('migrationNodes', $entries);
@@ -141,6 +143,7 @@ class MigrationNodesController extends MigrationAppController {
 		
 		$this->set('local', $local);
 		$this->set('modelAlias', $Model->alias);
+		$this->set('modelUrlAlias', $Model->getUrlName());
 		$this->set('remotes', $remotes);
 		$this->set('targets', $targets);
 	}
@@ -150,7 +153,7 @@ class MigrationNodesController extends MigrationAppController {
     $Model = Migration::getLocalModel($modelName);
     $remoteModel = Migration::getRemoteModel($Model,$instance);
     $remote = $remoteModel->read(null,$id);
-		$this->set('localModelAlias', $modelName); 
+		$this->set('modelUrlAlias', $Model->getUrlName());
 		$this->set('modelAlias', $remoteModel->alias);
 		$this->set('remote', $remote);
   }

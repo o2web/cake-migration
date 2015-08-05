@@ -21,7 +21,11 @@ class MigrationConfig extends Object {
 					'fileField' => 'filename',
 					'basePath' => 'webroot:',
 				)
-			)
+			),
+			'Translations.Translation' => array(
+				'mapFields'=>'original',
+				'listFields'=>array('id','original'),
+      )
 		),
 		'full'=>false,
 		'exclude' => array('History','Migration.MigrationNode','Migration.MigrationRemote','Migration.MigrationMissing'),

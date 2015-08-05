@@ -35,6 +35,9 @@ class MigrationBehavior extends ModelBehavior {
 		$settings = $this->settings[$Model->alias];
 		return (!empty($settings['plugin'])?$settings['plugin'].'.':'').$Model->name;
 	}
+	function getUrlName($Model){
+		return Migration::modelNameToUrl($Model->getFullName());
+	}
 	
 	function migrationSettings($Model, $key=null){
 		$settings = $this->settings[$Model->alias];
@@ -224,9 +227,9 @@ class MigrationBehavior extends ModelBehavior {
     $format = $Model->getDataSource()->columns['datetime']['format'];
     foreach($targets as $instance => $name){
       $lastSync = $this->getLastSync($Model,$instance);
-      $existingLocal = $Model->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync))));
+      $existingLocalCond = $this->FindPresyncConds($Model,array('conditions'=>array('created <= '=>date($format,$lastSync))));
       $remoteModel = Migration::getRemoteModel($Model,$instance);
-      $ids = $remoteModel->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync),'not'=>array($Model->primaryKey=>$existingLocal))));
+      $ids = $remoteModel->find('list',array('fields'=>array($Model->primaryKey,$Model->primaryKey),'conditions'=>array('created <= '=>date($format,$lastSync),'not'=>array($existingLocalCond))));
       if(!empty($ids)){
         $deletedIds[$instance] = array_merge( empty($deletedIds[$instance])?array():$deletedIds[$instance], $ids);
       }
@@ -238,7 +241,33 @@ class MigrationBehavior extends ModelBehavior {
     
     return $deletedIds;
   }
-	
+  
+  function FindPresyncConds($Model, $findOpt = array()){
+    $settings = $this->settings[$Model->alias];
+    if(empty($findOpt['recursive'])){
+      $findOpt['recursive'] = -1;
+    }
+    if(!empty($settings['mapFields'])){
+      foreach((array)$settings['mapFields'] as $field){
+        // $findOpt['fields'][] = $Model->alias.'.'.$field;
+        $findOpt['fields'][] = $field;
+      }
+    }else{
+      $findOpt['fields'] = array($Model->primaryKey);
+    }
+    if(count($findOpt['fields']) < 2){
+      $findOpt['fields'] = array($findOpt['fields'][0],$findOpt['fields'][0]);
+      $existingLocal = $Model->find('list',$findOpt);
+      return array($findOpt['fields'][0] => array_keys($existingLocal));
+    }else{
+      $cond = array('or'=>array());
+      $existingLocal = $Model->find('all',$findOpt);
+      foreach($existingLocal as $row){
+        $cond['or'][] = $row[$Model->alias];
+      }
+      return $cond;
+    }
+	}
 	
 	function getRemoteEntry($Model, $entry, $targetInstance){
 		$remoteEntry = null;
@@ -247,26 +276,38 @@ class MigrationBehavior extends ModelBehavior {
 		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
 		if(is_numeric($entry)){
 			$Model->joinMigrationRemote();
-			$entry = $Model->find(null,$entry);
+			$entry = $Model->read(null,$entry);
 		}
 		$remoteCond = array();
 		$lastSync = $this->getLastSync($Model,$targetInstance);
 		
-		if(!empty($lastSync) && strtotime($entry[$Model->alias]['created']) <= $lastSync){
-			$remoteCond[$remoteModel->alias.'.'.$remoteModel->primaryKey] = $entry[$Model->alias][$Model->primaryKey];
-		}elseif(!empty($entry[$MR->alias]['remote_id'])){
+		if(!empty($entry[$MR->alias]['remote_id'])){
 			$remoteCond[$remoteModel->alias.'.'.$remoteModel->primaryKey] = $entry[$MR->alias]['remote_id'];
-		}elseif(!empty($settings['mapFields']) && count(array_filter(array_intersect_key($entry[$Model->alias],array_flip((array)$settings['mapFields']))))){
-			foreach((array)$settings['mapFields'] as $field){
-				$remoteCond[$remoteModel->alias.'.'.$field] = $entry[$Model->alias][$field];
-			}
-		}
+		}elseif($MapFieldsConds = $this->_remoteEntryMapFieldsConds($Model,$entry,$remoteModel)){
+			$remoteCond = $MapFieldsConds;
+		}elseif(!empty($lastSync) && strtotime($entry[$Model->alias]['created']) <= $lastSync){
+			$remoteCond[$remoteModel->alias.'.'.$remoteModel->primaryKey] = $entry[$Model->alias][$Model->primaryKey];
+    }
 		
 		if(!empty($remoteCond)){
 			$remoteEntry = $remoteModel->find('first',array('conditions'=>$remoteCond,'recursive'=>-1));
 		}
 		return $remoteEntry;
 	}
+  
+  function _remoteEntryMapFieldsConds($Model,$entry,$remoteModel){
+    $settings = $this->settings[$Model->alias];
+		if(is_numeric($entry)){
+			$entry = $Model->read($settings['mapFields'],$entry);
+		}
+    if(!empty($settings['mapFields']) && count(array_filter(array_intersect_key($entry[$Model->alias],array_flip((array)$settings['mapFields']))))){
+      $remoteCond = array();
+      foreach((array)$settings['mapFields'] as $field){
+        $remoteCond[$remoteModel->alias.'.'.$field] = $entry[$Model->alias][$field];
+      }
+      return $remoteCond;
+    }
+  }
 	
 	function resolveRemoteConflict($Model, $entry, $remoteEntry, $targetInstance){
 		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
@@ -277,6 +318,7 @@ class MigrationBehavior extends ModelBehavior {
 	function getRemoteId($Model,$localEntry,$targetInstance){
 		$MR = $this->MigrationRemote;
 		$fullName = $this->getFullName($Model);
+    $settings = $this->settings[$Model->alias];
 		if(is_numeric($localEntry)){
 			$local_id = $localEntry;
 		}else{
@@ -292,6 +334,15 @@ class MigrationBehavior extends ModelBehavior {
 		if($remoteNode){
 			return $remoteNode[$MR->alias]['remote_id'];
 		}
+    
+    if(!empty($settings['mapFields'])){
+      $remoteModel = Migration::getRemoteModel($Model,$targetInstance);
+      $MapFieldsConds = $this->_remoteEntryMapFieldsConds($Model,$localEntry,$remoteModel);
+      if($MapFieldsConds){
+        $remote = $remoteModel->find('first',array('fields'=>array($remoteModel->primaryKey),'conditions'=>$MapFieldsConds,'recursive'=>-1));
+        return $remote[$remoteModel->alias][$remoteModel->primaryKey];
+      }
+    }
 		
 		$lastSync = $this->getLastSync($Model,$targetInstance);
 		if(!empty($lastSync)){

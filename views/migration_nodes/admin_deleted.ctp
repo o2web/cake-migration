@@ -29,7 +29,7 @@
 <div class="actions">
 	<ul>
 
-		<li><?php echo $this->Html->link(sprintf(__('List %s', true), __('Pendings', true)), array('action' => 'pendings', $localModelAlias));?></li>
+		<li><?php echo $this->Html->link(sprintf(__('List %s', true), __('Pendings', true)), array('action' => 'pendings', $modelUrlAlias));?></li>
 		<?php /*
     <li><?php echo $this->Html->link(__('Delete', true), array('action' => 'delete', $this->Form->value('MigrationNode.id')), null, sprintf(__('Are you sure you want to delete # %s?', true), $this->Form->value('MigrationNode.id'))); ?></li>
     <li><?php echo $this->Html->link(sprintf(__('List %s', true), __('Migration Nodes', true)), array('action' => 'index'));?></li>
