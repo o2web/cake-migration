@@ -23,7 +23,7 @@
     
     function getCond(){
       $opt = $this->options;
-      if(empty($opt['execeptions'])){
+      if(empty($opt['execeptions']) && (empty($opt['instance']['execeptions']) || $this->options['mode'] == 'exclude')){
         return array();
       }
       $key = '`'.$this->LocalModel->alias.'`.`'.$this->LocalModel->primaryKey.'`';
@@ -66,20 +66,22 @@
       // debug($this->options);
       $ids = $this->LocalModel->migrationDeletedIds($this->Process->targetInstance);
       if(!empty($ids)){
-        if(!empty($this->options['instance']['execeptions'])){
+        if(!empty($this->options['instance']['execeptions']) || (!empty($this->options['execeptions']) && $this->options['mode'] != 'exclude')){
           if($this->options['mode'] == 'exclude'){
             $ids = array_diff($ids,$this->options['instance']['execeptions']);
           }else{
             $ids = array_intersect($ids,$this->options['instance']['execeptions']);
           }
         }
-        $remoteModel = Migration::getRemoteModel($this->LocalModel,$this->Process->targetInstance);
-        $dry = MigrationConfig::load('dryRun');
-        if($dry){
-          $this->msg('Delete attempt on '.$remoteModel->alias.' for Ids : '.implode(', ',$ids));
-        }else{
-          if($remoteModel->deleteAll(array($remoteModel->alias.'.'.$remoteModel->primaryKey => $ids))){
-            $this->msg(str_replace('%nb%',count($ids),__('%nb% entries deleted on the remote server',true)));
+        if(!empty($ids)){
+          $remoteModel = Migration::getRemoteModel($this->LocalModel,$this->Process->targetInstance);
+          $dry = MigrationConfig::load('dryRun');
+          if($dry){
+            $this->msg('Delete attempt on '.$remoteModel->alias.' for Ids : '.implode(', ',$ids));
+          }else{
+            if($remoteModel->deleteAll(array($remoteModel->alias.'.'.$remoteModel->primaryKey => $ids))){
+              $this->msg(str_replace('%nb%',count($ids),__('%nb% entries deleted on the remote server',true)));
+            }
           }
         }
       }

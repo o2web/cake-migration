@@ -10,6 +10,7 @@ class MigratedComponent extends Object {
 	}
 	
 	function &getModelOpt($alias,$key=null){
+    $alias = end(explode('.',$alias));
 		if(!empty($this->modelsOpt[$alias])){
 			$opt = &$this->modelsOpt[$alias];
 		}else{

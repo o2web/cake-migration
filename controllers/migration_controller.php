@@ -50,6 +50,7 @@ class MigrationController extends MigrationAppController {
 		}
 		
 		$modelsNames = Migration::migratingModels();
+    
     $models = array();
 		$pendings = Migration::pendingList();
 		foreach($modelsNames as $mname){
