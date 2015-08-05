@@ -165,7 +165,7 @@
 			$settings = $this->LocalModel->migrationSettings();
 			$remoteModel = $this->getRemoteModel();
 			
-			$exclude = array();
+			$exclude = array('created','modified');
 			if(!empty($settings['overridable'])){
 				$MR = $this->MigrationRemote;
 				$overrides = array();
@@ -182,7 +182,7 @@
 				}
 			}
 			
-			$data = array_diff($entry['MigrationData'],array_flip($exclude));
+			$data = array_diff_key($entry['MigrationData'],array_flip($exclude));
 			if(empty($data)) return false;
 
 			$data = array_merge($remoteEntry[$remoteModel->alias],$data);
@@ -206,15 +206,17 @@
 			$entry = $this->getPrepedEntry();
 			$settings = $this->LocalModel->migrationSettings();
 			$remoteModel = $this->getRemoteModel();
+      
+			$exclude = array('created','modified');
 			
-			$data = $entry['MigrationData'];
+			$data = array_diff_key($entry['MigrationData'],array_flip($exclude));
 			if(empty($data)) return false;
-			
+      
 			$remoteModel->create();
 			$dry = MigrationConfig::load('dryRun');
 			if($dry){
 				$saved = true;
-				$this->msg('Save attempt on '.$remoteModel->alias);
+				$this->msg('Insert attempt on '.$remoteModel->alias);
 			}else{
 				$saved = $remoteModel->save($data);
 			}
