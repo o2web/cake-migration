@@ -81,6 +81,7 @@
           }else{
             if($remoteModel->deleteAll(array($remoteModel->alias.'.'.$remoteModel->primaryKey => $ids))){
               $this->msg(str_replace('%nb%',count($ids),__('%nb% entries deleted on the remote server',true)));
+              $this->MigrationRemote->deleteAll(array('model'=>$this->LocalModel->getFullName(), 'remote_id' => $ids));
             }
           }
         }

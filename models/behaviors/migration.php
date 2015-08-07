@@ -201,7 +201,7 @@ class MigrationBehavior extends ModelBehavior {
     
     $fullName = $this->getFullName($Model);
     $deletedIds = $this->MigrationRemote->find('list',array(
-      'fields'=>array($MR->alias.'.local_id', $MR->alias.'.local_id', $MR->alias.'.instance'),
+      'fields'=>array($MR->alias.'.remote_id', $MR->alias.'.remote_id', $MR->alias.'.instance'),
       'conditions'=> array(
         $MR->alias.'.model' => $fullName,
         $Model->alias.'.'.$Model->primaryKey => null
