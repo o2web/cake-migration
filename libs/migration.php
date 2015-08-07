@@ -108,11 +108,17 @@ class Migration extends Object {
 		if(!$Model->Behaviors->attached('Migration')){
 			App::import('Lib', 'Migration.MigrationConfig');
 			$preset = MigrationConfig::load('preset');
+      $options = array();
 			if(!empty($preset[$name])){
-				$Model->Behaviors->attach('Migration.Migration', $preset[$name]);
-			}else{
-				$Model->Behaviors->attach('Migration.Migration');
+				$options = $preset[$name];
 			}
+			$behaviorsConfig = MigrationConfig::load('behaviorsConfig');
+      $behaviorsConfig = array_intersect_key($behaviorsConfig,array_flip($Model->Behaviors->attached()));
+      foreach($behaviorsConfig as $conf){
+        $options = Set::merge($options,$conf);
+      }
+      
+      $Model->Behaviors->attach('Migration.Migration', $options);
 		}
 		App::import('Lib', 'Migration.MigrationConfig');
 		$harmfullBehaviors = MigrationConfig::load('harmfullBehaviors');

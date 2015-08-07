@@ -32,6 +32,7 @@ class MigrationConfig extends Object {
 		'instance_name' => null,
 		'target_instances' => array(),
 		'harmfullBehaviors' => array('History'),
+		'behaviorsConfig' => array('Tree'=>array('excludeFields'=>array('lft','rght'))),
 		'assocParsers' => array(array('Migration','getMultimediaAssoc')),
 		'dryRun' => false,
 	);
