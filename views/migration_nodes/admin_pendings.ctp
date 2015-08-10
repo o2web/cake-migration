@@ -27,10 +27,14 @@
 			$i = 0;
 			$bool = array(__('No', true), __('Yes', true), null => __('No', true));
 			foreach ($migrationNodes as $migrationNode) {
-				$class = null;
+				$class = array();
 				if ($i++ % 2 == 0) {
-					$class = ' class="altrow"';
+					$class[] = 'altrow';
 				}
+        if(!empty($options['force']) && in_array($migrationNode[$modelAlias][$modelPrimary],$options['force'])){
+					$class[] = 'forced';
+        }
+        $class = count($class)?' class="'.implode(' ',$class).'"':'';
 				?>
 					<tr<?php echo $class;?>>
 						<?php $j=0; ?>

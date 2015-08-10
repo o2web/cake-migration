@@ -19,7 +19,8 @@ class MigratedComponent extends Object {
         $opt = array(
           'mode'=>'exclude',
           'execeptions'=>array(),
-          'instances'=>array()
+          'instances'=>array(),
+          'force'=>array(),
         );
       }
       $this->modelsOpt[$alias] = &$opt;
@@ -52,6 +53,7 @@ class MigratedComponent extends Object {
 	}
 	
 	function saveModelOpt($alias){
+    $alias = end(explode('.',$alias));
 		$opt = $this->getModelOpt($alias);
 		$this->Session->write('Migration.migrated.'.$alias,$opt);
 		// debug($opt);

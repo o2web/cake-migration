@@ -116,6 +116,7 @@ class MigrationNodesController extends MigrationAppController {
     }
     
     
+    $this->set('options', $this->Migrated->getModelOpt($Model->alias));
 		$this->set('modelAlias', $Model->alias);
 		$this->set('modelUrlAlias', $Model->getUrlName());
 		$this->set('modelPrimary', $Model->primaryKey);
@@ -141,12 +142,25 @@ class MigrationNodesController extends MigrationAppController {
 		}
 		$local = $Model->getRawEntry($local);
 		
+		$this->set('localId', $id);
 		$this->set('local', $local);
 		$this->set('modelAlias', $Model->alias);
 		$this->set('modelUrlAlias', $Model->getUrlName());
 		$this->set('remotes', $remotes);
 		$this->set('targets', $targets);
 	}
+  
+  
+	function admin_force($modelName,$id) {
+		App::import('Lib', 'Migration.Migration');
+		$modelName = Migration::urlParamToModelName($modelName);
+    $opt = &$this->Migrated->getModelOpt($modelName);
+    if(empty($opt['force']) || !in_array($id,$opt['force'])){
+      $opt['force'][] = $id;
+      $this->Migrated->saveModelOpt($modelName);
+    }
+    $this->redirect(array('action'=>'pendings',$modelName));
+  }
 
 	function admin_deleted($instance,$modelName,$id) {
 		App::import('Lib', 'Migration.Migration');

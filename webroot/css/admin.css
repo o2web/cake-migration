@@ -14,6 +14,12 @@
     border-width: 1px 0 0 0; }
   .migrationNodes table th.migrated {
     width: 80px; }
+  .migrationNodes table tr.forced td {
+    background-color: #ffffaa; }
+  .migrationNodes table tr.forced.altrow td {
+    background-color: #eeeeaa; }
+  .migrationNodes table tr.forced:hover td {
+    background-color: #ffffdd; }
 .migrationNodes .includeModeInput {
   position: relative; }
 .migrationNodes .includeModeInput input {

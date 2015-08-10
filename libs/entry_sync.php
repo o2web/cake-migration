@@ -37,6 +37,9 @@
 					if($this->LocalModel->updateRemoteFiles($entry, $this->targetInstance)){
 						return $this->updateRemoteTracking( $remoteEntry[$remoteModel->alias][$remoteModel->primaryKey]);
 					}
+        }elseif(!empty($this->Batch->options['force']) && in_array($entry[$this->LocalModel->alias][$this->LocalModel->primaryKey],$this->Batch->options['force'])){
+					//Migration was forced
+					return $this->updateRemoteEntry();
 				}elseif(!empty($entry[$MR->alias]['sign']) && $entry[$MR->alias]['sign'] == $remoteSign){
 					//Remote entry was not modified since the last sync
 					return $this->updateRemoteEntry();
