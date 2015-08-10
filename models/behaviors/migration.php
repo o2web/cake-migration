@@ -311,7 +311,7 @@ class MigrationBehavior extends ModelBehavior {
 	
 	function resolveRemoteConflict($Model, $entry, $remoteEntry, $targetInstance){
 		$remoteModel = Migration::getRemoteModel($Model,$targetInstance);
-		$this->msg('Cant resolve conflict');
+		$this->msg('Conflict : This item was edited on the target environement and can\'t be migrated automaticaly (<a href="'.Router::url(array('plugin'=>'migration','controller'=>'migration_nodes','action'=>'diff',$Model->getUrlName(),$entry[$Model->alias][$Model->primaryKey],'admin'=>true)).'">Diff</a>)');
 		return false;
 	}
 	
