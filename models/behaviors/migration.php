@@ -3,12 +3,12 @@ class MigrationBehavior extends ModelBehavior {
 	
 	var $defaultSettings = array(
 		'mode'=>'all',
-		'plugin'=>null,
-		'excludeFields'=>array(),
-		'overridable'=>array(),
-		'manual'=>false,
-		'listFields'=>array(),
-		'assoc'=>array(),
+		'plugin'=>null, // The model should be setted Here
+		'excludeFields'=>array(), // Fields that will not be used to compair with the remote version of the entry
+		'overridable'=>array(), // Overridable Fields will be synchorized until and only until it is modified on a remote instance
+		'manual'=>false, // Entries will not be tracked unless configured otherwise in the admin
+		'listFields'=>array(), // Fields shown in the entries list
+		'assoc'=>array(), // Additional assiciations that cant be autometicaly detected
 	);
 	
 	function setup(&$Model, $settings) {

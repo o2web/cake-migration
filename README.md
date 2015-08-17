@@ -11,6 +11,10 @@ Pour cakePHP 1.3
   php cake/console/cake.php install_migration
   ```
 
+## Configuration
+
+See libs/migration_config.php and  models/behaviors/migration.php
+  
 ## todo
 
 * ~~Overridable fields~~
@@ -20,8 +24,8 @@ Pour cakePHP 1.3
 * ~~Set a global sync option~~
 * ~~diff viewer~~
 * ~~check invalidated entries at the end of a full synch~~
-* handle deleted entries
-* create on map conflict opt
+* ~~handle deleted entries~~
+* "create on map conflict" option
 * handle many files with the same name
 * console
 
