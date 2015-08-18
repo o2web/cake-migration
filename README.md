@@ -6,7 +6,7 @@ Plugin allowing to synchronize data from models between many instance of CakePHP
 
 ## Installation
 
-* Placer le dossier "migration" dans "app/plugins/".
+* Put the content of this plugin in "app/plugins/" in a folder named "migration".
 * Exécuter les commandes SQL de "database.sql" dans la base de donnée MySql.
 * Run the following to generate the config file :
   ```sh
