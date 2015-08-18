@@ -2,6 +2,8 @@
 
 Pour cakePHP 1.3
 
+Plugin allowing to synchronize data from models between many instance of CakePHP
+
 ## Installation
 
 * Placer le dossier "migration" dans "app/plugins/".
