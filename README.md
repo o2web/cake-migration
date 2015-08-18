@@ -1,4 +1,4 @@
-# o2cms Database Migration
+# Database Migration
 
 Pour cakePHP 1.3
 
