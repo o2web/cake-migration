@@ -16,6 +16,10 @@ Plugin allowing to synchronize data from models between many instance of CakePHP
 ## Configuration
 
 See libs/migration_config.php and  models/behaviors/migration.php
+
+## Model Requirement
+
+The table of a migrated model must have the "modified" and "created" fields.
   
 ## todo
 
